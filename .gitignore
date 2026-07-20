@@ -1,0 +1,20 @@
+node_modules/
+.DS_Store
+*.swp
+*.swo
+
+# Ignore personal thesis/laporan files — these are private
+# and should never be committed to this skill repository
+*.docx
+*.pdf
+*.txt
+!examples/*.docx
+!examples/*.pdf
+!examples/*.txt
+
+# Work directories (generated during editing sessions)
+work/
+unpacked/
+
+# Ignore any personal project-specific progress files
+TASK_PROGRESS_*.md

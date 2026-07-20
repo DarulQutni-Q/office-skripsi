@@ -1,0 +1,35 @@
+{
+  "name": "@andypratama3/office-skill",
+  "version": "0.1.0",
+  "description": "AI agent skill for editing, manipulating, and generating Office documents (DOCX, PPTX, PDF, XLSX) using python-docx, python-pptx, LibreOffice, and raw XML manipulation.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "office-skill": "./index.js"
+  },
+  "scripts": {
+    "docs": "open https://github.com/andypratama3/office-skill"
+  },
+  "keywords": [
+    "opencode",
+    "skill",
+    "docx",
+    "office",
+    "word",
+    "powerpoint",
+    "pdf",
+    "spreadsheet",
+    "document-generation",
+    "ai-agent"
+  ],
+  "author": "Andy Pratama",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andypratama3/office-skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andypratama3/office-skill/issues"
+  },
+  "homepage": "https://github.com/andypratama3/office-skill#readme"
+}
