@@ -1,8 +1,18 @@
+---
+name: skripsi
+description: Edit skripsi/thesis DOCX — content, formatting, TOC, captions, citations, consistency checks, and plagiarism-safe paraphrasing. Use when the user mentions skripsi, thesis, Word document revision, DOCX editing, fixing headings/captions/TOC, or formatting skripsi.
+license: MIT
+compatibility: opencode
+metadata:
+  audience: students
+  format: docx
+---
+
 # SKILL: Skripsi/Thesis DOCX Editor & Consistency Auditor
 
 Mengajarkan agent coding cara merevisi dokumen skripsi (.docx) secara langsung — edit isi, perbaiki Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi format, dan uji konsistensi lintas bab — dengan target similarity <20%.
 
-> **Auto-load**: Repo ini sudah punya `opencode.json` → `./SKILL.md`. Clone → `cd office-skripsi` → langsung ter-load otomatis di OpenCode.
+> **Auto-load**: Repo ini sudah punya `opencode.json`. Clone → `cd office-skripsi` → skill siap pakai.
 
 ---
 

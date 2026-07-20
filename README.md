@@ -10,7 +10,7 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 
 ## Instalasi
 
-### Clone (Rekomendasi)
+### 1. Clone
 
 ```bash
 git clone https://github.com/andypratama3/office-skripsi.git
@@ -18,53 +18,61 @@ cd office-skripsi
 pip install python-docx lxml
 ```
 
-Install dependensi sistem sesuai OS kamu:
+### 2. Pasang skill (otomatis dikenali OpenCode)
 
-**macOS**
+**Cara A — Global (skill tersedia di semua project):**
+
 ```bash
-brew install --cask libreoffice poppler
+mkdir -p ~/.config/opencode/skills/skripsi
+ln -sf $(pwd)/SKILL.md ~/.config/opencode/skills/skripsi/SKILL.md
 ```
 
-**Linux (Ubuntu/Debian)**
-```bash
-sudo apt update
-sudo apt install libreoffice poppler-utils zip unzip
+OpenCode otomatis scan `~/.config/opencode/skills/*/SKILL.md` — tidak perlu tambah config apapun.
+
+**Cara B — Per project** (kalau `~/.config/opencode/skills/` belum ada):
+
+Tambah ke `~/.config/opencode/opencode.json`:
+```json
+{
+  "skills": {
+    "paths": ["/path/ke/office-skripsi"]
+  }
+}
 ```
 
-**Windows**
-```powershell
-# PowerShell (Admin)
-winget install LibreOffice.LibreOffice
-winget install poppler
-# atau download manual:
-# LibreOffice: https://www.libreoffice.org/download/
-# Poppler: https://github.com/oschwartz10612/poppler-windows/releases/
-```
+### 3. Install dependensi sistem
 
-### Download ZIP
+| OS | LibreOffice | Poppler |
+|----|-------------|---------|
+| **macOS** | `brew install --cask libreoffice` | `brew install poppler` |
+| **Linux** | `sudo apt install libreoffice` | `sudo apt install poppler-utils` |
+| **Windows** | [Download](https://www.libreoffice.org/download/) | [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) |
 
-Download dari https://github.com/andypratama3/office-skripsi, extract, lalu:
+### 4. Verifikasi
+
 ```bash
-cd office-skripsi-main
-pip install python-docx lxml
+# Cek skill terdaftar
+npx opencode debug skill
+# atau kalau opencode terinstall global:
+opencode debug skill
 ```
 
 Update: `cd office-skripsi && git pull`
+
+---
+
+## Cara Pakai
 
 ## Cara Pakai
 
 ### Sebagai AI Agent Skill
 
-**Auto-configured**: Repo ini sudah punya `opencode.json` yang refer ke `./SKILL.md`. Kalau kamu buka folder `office-skripsi/` di OpenCode, skill otomatis ter-load.
+**Auto-configured**: Repo ini sudah punya `opencode.json` dengan `skills.paths: ["."]`. Buka folder `office-skripsi/` di OpenCode → skill langsung ter-load.
 
-Untuk **global** (semua project), tambahkan ke `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "skills": {
-    "skripsi": "/path/ke/office-skripsi/SKILL.md"
-  }
-}
+**Global** (semua project):
+```bash
+ln -sf $(pwd)/SKILL.md ~/.config/opencode/skills/skripsi/SKILL.md
+```
 ```
 
 Untuk Claude Code / agent lain:
