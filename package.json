@@ -1,5 +1,5 @@
 {
-  "name": "@andypratama3/office-skill",
+  "name": "office-skill",
   "version": "0.1.0",
   "description": "AI agent skill for editing skripsi/thesis DOCX documents — content, formatting, TOC, captions, citations, and consistency checks using python-docx, LibreOffice, and raw XML.",
   "type": "module",

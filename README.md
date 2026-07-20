@@ -8,23 +8,89 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 - **AI coding agents** yang perlu tahu cara edit .docx tanpa Microsoft Office
 - Siapapun yang bekerja dengan dokumen skripsi berbahasa Indonesia
 
-## Cara Pakai
+## Instalasi
+
+### Opsi 1: Clone (Rekomendasi)
 
 ```bash
-# Load skill di AI agent config-mu:
-# opencode.json
+git clone https://github.com/andypratama3/office-skill.git
+cd office-skill
+pip install python-docx lxml
+brew install --cask libreoffice poppler
+```
+
+### Opsi 2: npx dari GitHub (tanpa clone manual)
+
+```bash
+npx github:andypratama3/office-skill
+```
+
+Tapi untuk benar-benar pakai skill-nya, tetap perlu clone — npx cuma nampilin info.
+
+### Opsi 3: Download ZIP
+
+Download dari https://github.com/andypratama3/office-skill, extract, lalu jalankan:
+
+```bash
+cd office-skill-main
+pip install python-docx lxml
+```
+
+## Cara Pakai
+
+### Sebagai AI Agent Skill
+
+Di konfigurasi OpenCode (`opencode.json` atau `~/.config/opencode/opencode.json`):
+
+```json
 {
-  "skills": ["/path/to/office-skill/SKILL.md"]
+  "skills": ["/path/ke/office-skill/SKILL.md"]
 }
 ```
 
-Atau akses sub-skill langsung:
+Untuk Claude Code / agent lain yang support system instructions:
 
 ```bash
-skills/docx/SKILL.md    # Semua teknik edit skripsi (utama)
-skills/pptx/SKILL.md    # Edit slide presentasi sidang
-skills/pdf/SKILL.md     # Ekstrak & verifikasi PDF
-skills/spreadsheet/SKILL.md  # Olah data XLSX
+cat SKILL.md  # lalu copy outputnya ke system prompt agent
+```
+
+### Sebagai Script Tools Langsung
+
+```bash
+# Analisis dokumen skripsi
+python3 scripts/docx-tools.py skripsi.docx all
+
+# Validasi setelah edit
+python3 scripts/validate-docx.py revised.docx
+
+# Merge runs sebelum edit XML
+python3 scripts/merge-runs.py work/unpacked/word/document.xml
+```
+
+### Alur Kerja Singkat
+
+```bash
+# 1. Setup
+mkdir -p work && cd work
+cp ../skripsi.docx ../skripsi_backup.docx
+unzip -q ../skripsi.docx -d unpacked/
+
+# 2. Merge runs (wajib!)
+python3 ../scripts/merge-runs.py unpacked/word/document.xml
+
+# 3. Edit XML (str_replace)
+# Buka unpacked/word/document.xml, cari teks target, ganti
+
+# 4. Repack
+cd unpacked && zip -Xr ../revised.docx . && cd ..
+
+# 5. Validasi
+python3 ../scripts/validate-docx.py revised.docx
+
+# 6. Render & verifikasi
+soffice --headless --convert-to pdf revised.docx
+pdftotext -layout revised.pdf revised.txt
+grep -n "BAB 1\|Tabel 4" revised.txt
 ```
 
 ## Prasyarat

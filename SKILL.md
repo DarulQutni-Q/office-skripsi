@@ -19,7 +19,25 @@ Skill ini fokus ke **DOCX** (99% skripsi pakai Word). PPTX/PDF/XLSX adalah pendu
 
 ---
 
-## 1. Prasyarat
+## 1. Instalasi
+
+```bash
+# Clone repo
+git clone https://github.com/andypratama3/office-skill.git
+cd office-skill
+
+# Install dependensi Python
+pip install python-docx lxml
+
+# Install tools sistem (macOS)
+brew install --cask libreoffice poppler
+```
+
+Kalau sudah pernah clone sebelumnya, tinggal `git pull` untuk update.
+
+---
+
+## 2. Prasyarat
 
 ```bash
 pip install python-docx lxml
