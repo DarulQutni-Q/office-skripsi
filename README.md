@@ -55,11 +55,13 @@ Update: `cd office-skill && git pull`
 
 ### Sebagai AI Agent Skill
 
-Di konfigurasi OpenCode (`opencode.json` atau `~/.config/opencode/opencode.json`):
+**Auto-configured**: Repo ini sudah punya `opencode.json` yang refer ke `./SKILL.md`. Kalau kamu buka folder `office-skill/` di OpenCode, skill otomatis ter-load.
+
+Untuk **global** (semua project), tambahkan ke `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "skills": ["C:/path/ke/office-skill/SKILL.md"]
+  "skills": ["/path/ke/office-skill/SKILL.md"]
 }
 ```
 

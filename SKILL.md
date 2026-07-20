@@ -2,6 +2,8 @@
 
 Mengajarkan agent coding cara merevisi dokumen skripsi (.docx) secara langsung — edit isi, perbaiki Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi format, dan uji konsistensi lintas bab — dengan target similarity <20%.
 
+> **Auto-load**: Repo ini sudah punya `opencode.json` → `./SKILL.md`. Clone → `cd office-skill` → langsung ter-load otomatis di OpenCode.
+
 ---
 
 ## 0. Dokumen Skripsi — yang Perlu Dipahami
