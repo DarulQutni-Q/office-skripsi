@@ -6,17 +6,23 @@ Covers editing, generating, and validating DOCX files using `python-docx` and ra
 
 ## 0. Quick Reference
 
+**macOS / Linux:**
 ```bash
-# Unzip to edit XML directly
 mkdir -p work && cd work
 cp ../original.docx ../original_backup.docx
 unzip -q ../original.docx -d unpacked/
-
-# After editing, repack
 cd unpacked && zip -Xr ../output.docx . && cd ..
-
-# Render to PDF to verify
 soffice --headless --convert-to pdf output.docx
+pdftotext -layout output.pdf output.txt
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Path work -Force
+Copy-Item ../original.docx ../original_backup.docx
+Expand-Archive -Path ../original.docx -DestinationPath unpacked/
+Compress-Archive -Path unpacked/* -DestinationPath ../output.docx -Force
+& "C:\Program Files\LibreOffice\program\soffice.exe" --headless --convert-to pdf output.docx
 pdftotext -layout output.pdf output.txt
 ```
 

@@ -28,12 +28,17 @@ cd office-skill
 
 # Install dependensi Python
 pip install python-docx lxml
-
-# Install tools sistem (macOS)
-brew install --cask libreoffice poppler
 ```
 
-Kalau sudah pernah clone sebelumnya, tinggal `git pull` untuk update.
+**Dependensi sistem:**
+
+| OS | LibreOffice | Poppler | zip/unzip |
+|----|-------------|---------|-----------|
+| **macOS** | `brew install --cask libreoffice` | `brew install poppler` | Bawaan |
+| **Linux** | `sudo apt install libreoffice` | `sudo apt install poppler-utils` | `sudo apt install zip unzip` |
+| **Windows** | Download dari [libreoffice.org](https://libreoffice.org) | [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) | Bawaan (PowerShell `Expand-Archive`) |
+
+Update: `cd office-skill && git pull`
 
 ---
 
@@ -41,13 +46,13 @@ Kalau sudah pernah clone sebelumnya, tinggal `git pull` untuk update.
 
 ```bash
 pip install python-docx lxml
-brew install --cask libreoffice     # docx → PDF (verifikasi visual)
-brew install poppler                # PDF → teks (pdftotext)
 ```
+
+Pastikan LibreOffice (`soffice`) dan Poppler (`pdftotext`) sudah terinstall dan masuk PATH.
 
 ---
 
-## 2. Alur Kerja Wajib (10 Langkah — Jangan Lewatkan!)
+## 3. Alur Kerja Wajib (10 Langkah — Jangan Lewatkan!)
 
 ```
  1. Unzip docx       → mkdir work && unzip -q original.docx -d unpacked/
@@ -62,22 +67,24 @@ brew install poppler                # PDF → teks (pdftotext)
 10. Ulangi 6-9       → Sampai semua konsisten
 ```
 
+> **Windows users**: Ganti `unzip` dengan `Expand-Archive`, `zip` dengan `Compress-Archive`, `cp` dengan `Copy-Item`. Gunakan `python` bukan `python3`. Jalankan LibreOffice dari path lengkap: `& "C:\Program Files\LibreOffice\program\soffice.exe" --headless --convert-to pdf file.docx`
+
 ---
 
-## 3. Aturan Universal (Prioritas Tertinggi)
+## 4. Aturan Universal (Prioritas Tertinggi)
 
 1. **DOCX adalah ZIP berisi XML** — jangan pernah edit .docx langsung. `unzip` dulu, baru edit `word/document.xml`.
 2. **Backup SEBELUM edit** — `cp file.docx file_backup.docx`. Simpan di folder `work/`.
-3. **Merge runs DAHULU** — Word memecah satu kalimat jadi banyak `<w:r>` kecil. Kalau tidak di-merge, str_replace akan gagal karena teks terpotong di XML.
+3. **Merge runs DAHULU** — Word memecah satu kalimat jadi banyak `<w:r>` kecil. Kalau tidak di-merge, str_replace akan gagal.
 4. **Satu batch edit → validasi** — jangan edit 10 tempat lalu baru validasi. Susah lacak errornya.
-5. **Render PDF & grep untuk verifikasi** — jangan percaya XML doang. `soffice --headless --convert-to pdf out.docx` lalu `pdftotext -layout out.pdf out.txt` dan `grep`.
-6. **Field (TOC/SEQ/PAGEREF) TIDAK auto-update** — LibreOffice headless tidak bisa diandalkan untuk rekalkulasi. **Hitung manual, hardcode nilai cache**, baru set `updateFields=true` sebagai jaring pengaman.
-7. **Setiap sisipan → efek berantai** — nambah 1 tabel di tengah menggeser nomor SEMUA tabel setelahnya + referensi teks "lihat Tabel X" di seluruh dokumen.
+5. **Render PDF & grep untuk verifikasi** — jangan percaya XML doang. `soffice` lalu `pdftotext` lalu `grep`.
+6. **Field (TOC/SEQ/PAGEREF) TIDAK auto-update** — LibreOffice headless tidak bisa diandalkan. **Hitung manual, hardcode nilai cache**, baru set `updateFields=true` sebagai jaring pengaman.
+7. **Setiap sisipan → efek berantai** — nambah 1 tabel di tengah menggeser nomor SEMUA tabel setelahnya + referensi teks di seluruh dokumen.
 8. **Source code > screenshot > teks** — kalau kode punya 9 state tapi teks bilang 8, teks yang salah.
 
 ---
 
-## 4. Teknik Detail (DOCX Sub-Skill)
+## 5. Teknik Detail (DOCX Sub-Skill)
 
 Semua teknik detail ada di `skills/docx/SKILL.md`:
 
@@ -92,7 +99,7 @@ Semua teknik detail ada di `skills/docx/SKILL.md`:
 | Validasi akhir & checklist | `skills/docx/SKILL.md` §8 |
 | Lessons learned (pengalaman nyata) | `skills/docx/SKILL.md` §9 |
 
-**Sub-skill pendukung** (jarang dipakai untuk skripsi tapi tersedia):
+**Sub-skill pendukung:**
 
 | Skill | File | Untuk |
 |-------|------|-------|
@@ -102,7 +109,9 @@ Semua teknik detail ada di `skills/docx/SKILL.md`:
 
 ---
 
-## 5. Utility Scripts
+## 6. Utility Scripts
+
+Semua script Python — **cross-platform** (macOS, Windows, Linux).
 
 ```bash
 # Validasi dokumen setelah edit
@@ -117,9 +126,11 @@ python3 scripts/docx-tools.py skripsi.docx headings
 python3 scripts/docx-tools.py skripsi.docx citations
 ```
 
+> Di Windows ganti `python3` dengan `python`. Pastikan Python terdaftar di PATH.
+
 ---
 
-## 6. Anti-Patterns
+## 7. Anti-Patterns
 
 | ❌ Jangan | ✅ Lakukan |
 |-----------|-----------|

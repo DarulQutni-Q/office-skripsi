@@ -10,31 +10,46 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 
 ## Instalasi
 
-### Opsi 1: Clone (Rekomendasi)
+### Clone (Rekomendasi)
 
 ```bash
 git clone https://github.com/andypratama3/office-skill.git
 cd office-skill
 pip install python-docx lxml
+```
+
+Install dependensi sistem sesuai OS kamu:
+
+**macOS**
+```bash
 brew install --cask libreoffice poppler
 ```
 
-### Opsi 2: npx dari GitHub (tanpa clone manual)
-
+**Linux (Ubuntu/Debian)**
 ```bash
-npx github:andypratama3/office-skill
+sudo apt update
+sudo apt install libreoffice poppler-utils zip unzip
 ```
 
-Tapi untuk benar-benar pakai skill-nya, tetap perlu clone — npx cuma nampilin info.
+**Windows**
+```powershell
+# PowerShell (Admin)
+winget install LibreOffice.LibreOffice
+winget install poppler
+# atau download manual:
+# LibreOffice: https://www.libreoffice.org/download/
+# Poppler: https://github.com/oschwartz10612/poppler-windows/releases/
+```
 
-### Opsi 3: Download ZIP
+### Download ZIP
 
-Download dari https://github.com/andypratama3/office-skill, extract, lalu jalankan:
-
+Download dari https://github.com/andypratama3/office-skill, extract, lalu:
 ```bash
 cd office-skill-main
 pip install python-docx lxml
 ```
+
+Update: `cd office-skill && git pull`
 
 ## Cara Pakai
 
@@ -44,83 +59,98 @@ Di konfigurasi OpenCode (`opencode.json` atau `~/.config/opencode/opencode.json`
 
 ```json
 {
-  "skills": ["/path/ke/office-skill/SKILL.md"]
+  "skills": ["C:/path/ke/office-skill/SKILL.md"]
 }
 ```
 
-Untuk Claude Code / agent lain yang support system instructions:
-
+Untuk Claude Code / agent lain:
 ```bash
-cat SKILL.md  # lalu copy outputnya ke system prompt agent
+# macOS/Linux
+cat SKILL.md | pbcopy
+# Windows PowerShell
+Get-Content SKILL.md | Set-Clipboard
 ```
 
 ### Sebagai Script Tools Langsung
 
 ```bash
 # Analisis dokumen skripsi
-python3 scripts/docx-tools.py skripsi.docx all
+python scripts/docx-tools.py skripsi.docx all
 
 # Validasi setelah edit
-python3 scripts/validate-docx.py revised.docx
+python scripts/validate-docx.py revised.docx
 
 # Merge runs sebelum edit XML
-python3 scripts/merge-runs.py work/unpacked/word/document.xml
+python scripts/merge-runs.py work/unpacked/word/document.xml
 ```
 
-### Alur Kerja Singkat
+Gunakan `python` (bukan `python3`) di Windows. Di macOS/Linux `python3`.
+
+### Alur Kerja Singkat (macOS/Linux)
 
 ```bash
-# 1. Setup
 mkdir -p work && cd work
 cp ../skripsi.docx ../skripsi_backup.docx
 unzip -q ../skripsi.docx -d unpacked/
-
-# 2. Merge runs (wajib!)
 python3 ../scripts/merge-runs.py unpacked/word/document.xml
-
-# 3. Edit XML (str_replace)
-# Buka unpacked/word/document.xml, cari teks target, ganti
-
-# 4. Repack
+# edit XML...
 cd unpacked && zip -Xr ../revised.docx . && cd ..
-
-# 5. Validasi
 python3 ../scripts/validate-docx.py revised.docx
-
-# 6. Render & verifikasi
 soffice --headless --convert-to pdf revised.docx
 pdftotext -layout revised.pdf revised.txt
 grep -n "BAB 1\|Tabel 4" revised.txt
 ```
 
+### Alur Kerja Singkat (Windows PowerShell)
+
+```powershell
+New-Item -ItemType Directory -Path work -Force
+Copy-Item ../skripsi.docx ../skripsi_backup.docx
+Expand-Archive -Path ../skripsi.docx -DestinationPath unpacked/
+python scripts/merge-runs.py unpacked/word/document.xml
+# edit XML...
+Compress-Archive -Path unpacked/* -DestinationPath ../revised.docx -Force
+python scripts/validate-docx.py revised.docx
+& "C:\Program Files\LibreOffice\program\soffice.exe" --headless --convert-to pdf revised.docx
+pdftotext -layout revised.pdf revised.txt
+Select-String -Path revised.txt -Pattern "BAB 1|Tabel 4"
+```
+
+### Via `pip install` (Alternatif)
+
+```bash
+pip install git+https://github.com/andypratama3/office-skill.git
+```
+
 ## Prasyarat
 
-| Tool | Untuk |
-|------|-------|
-| `python3` + `python-docx` | Baca/tulis DOCX |
-| `LibreOffice` (`soffice`) | DOCX → PDF (verifikasi visual) |
-| `poppler-utils` (`pdftotext`) | PDF → teks (grep untuk ngecek) |
-| `zip`/`unzip` | Ekstrak/repack DOCX (karena DOCX = ZIP) |
-| `lxml` | Validasi XML |
+| Tool | Install | Untuk |
+|------|---------|-------|
+| Python 3 | [python.org](https://python.org) | Menjalankan scripts |
+| `python-docx` | `pip install python-docx` | Baca/tulis DOCX |
+| `lxml` | `pip install lxml` | Validasi XML |
+| LibreOffice | [libreoffice.org](https://libreoffice.org) | DOCX → PDF |
+| Poppler | `brew install poppler` / `sudo apt install poppler-utils` | PDF → teks |
+| zip/unzip | Bawaan OS | Ekstrak/repack DOCX |
 
 ## Struktur Project
 
 ```
 office-skill/
-├── SKILL.md                        # Skill utama — panduan skripsi lengkap
-├── package.json                    # npx @andypratama3/office-skill
+├── SKILL.md                        # Skill utama — panduan skripsi
+├── package.json
 ├── index.js
-├── .gitignore                      # Otomatis ignore file .docx/.pdf pribadi
+├── .gitignore                      # Ignore file .docx/.pdf pribadi
 ├── README.md
 ├── skills/
-│   ├── docx/SKILL.md               # Semua teknik detail edit DOCX
+│   ├── docx/SKILL.md               # Semua teknik edit DOCX
 │   ├── pptx/SKILL.md               # PPTX (sidang)
 │   ├── pdf/SKILL.md                # PDF handling
 │   └── spreadsheet/SKILL.md        # XLSX (data)
 ├── scripts/
-│   ├── validate-docx.py            # Validasi DOCX setelah edit
-│   ├── docx-tools.py               # Analisis isi dokumen
-│   └── merge-runs.py               # Gabung fragmentasi Word di XML
+│   ├── validate-docx.py            # Validasi DOCX
+│   ├── docx-tools.py               # Analisis isi
+│   └── merge-runs.py               # Gabung fragmentasi Word
 └── examples/
     └── EXAMPLE_SKRIPSI_WORKFLOW.md
 ```
@@ -131,20 +161,12 @@ office-skill/
 |----------------|---------------------|
 | Heading tidak bernomor | Edit XML: tambah `w:numPr` |
 | Caption tabel/gambar tidak urut | Renumber SEQ field |
-| Daftar Isi halamannya salah | Hardcode PAGEREF dari hasil render PDF |
-| Sitasi in-text tidak punya pasangan | Cross-check otomatis |
-| Definisi terdeteksi plagiarism | Template paragraf anti-plagiarism |
+| Daftar Isi halamannya salah | Hardcode PAGEREF dari render PDF |
+| Sitasi tidak punya pasangan | Cross-check otomatis |
+| Definisi terdeteksi plagiarisme | Template paragraf anti-plagiarism |
 | State di kode 9 tapi di teks 8 | Verifikasi langsung ke source code |
 | Riwayat hidup duplikat | Deteksi & minta konfirmasi penulis |
 | TOC hilang sub-bab baru | Cek bookmark `_Toc` |
-
-## Prinsip Kerja
-
-1. **DOCX = ZIP** — unzip dulu, edit XML, zip ulang. Jangan edit binary langsung.
-2. **Verifikasi dengan PDF** — render, `pdftotext`, `grep`. Jangan percaya edit "beres" sebelum lihat hasil render.
-3. **Backup sebelum edit** — simpan file asli terpisah.
-4. **Satu batch → validasi** — jangan timbun 10 edit tanpa cek.
-5. **Source code > screenshot > teks** — kalau bertentangan, kode yang benar.
 
 ## License
 
