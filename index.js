@@ -17,6 +17,6 @@ console.log(`
 │    skills/pdf/        - PDF handling                  │
 │    skills/spreadsheet/ - XLSX/Spreadsheets            │
 │                                                        │
-│  Repo: https://github.com/andypratama3/office-skill    │
+│  Repo: https://github.com/andypratama3/office-skripsi    │
 └──────────────────────────────────────────────────────┘
 `);

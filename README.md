@@ -13,8 +13,8 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 ### Clone (Rekomendasi)
 
 ```bash
-git clone https://github.com/andypratama3/office-skill.git
-cd office-skill
+git clone https://github.com/andypratama3/office-skripsi.git
+cd office-skripsi
 pip install python-docx lxml
 ```
 
@@ -43,25 +43,27 @@ winget install poppler
 
 ### Download ZIP
 
-Download dari https://github.com/andypratama3/office-skill, extract, lalu:
+Download dari https://github.com/andypratama3/office-skripsi, extract, lalu:
 ```bash
-cd office-skill-main
+cd office-skripsi-main
 pip install python-docx lxml
 ```
 
-Update: `cd office-skill && git pull`
+Update: `cd office-skripsi && git pull`
 
 ## Cara Pakai
 
 ### Sebagai AI Agent Skill
 
-**Auto-configured**: Repo ini sudah punya `opencode.json` yang refer ke `./SKILL.md`. Kalau kamu buka folder `office-skill/` di OpenCode, skill otomatis ter-load.
+**Auto-configured**: Repo ini sudah punya `opencode.json` yang refer ke `./SKILL.md`. Kalau kamu buka folder `office-skripsi/` di OpenCode, skill otomatis ter-load.
 
 Untuk **global** (semua project), tambahkan ke `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "skills": ["/path/ke/office-skill/SKILL.md"]
+  "skills": {
+    "skripsi": "/path/ke/office-skripsi/SKILL.md"
+  }
 }
 ```
 
@@ -121,7 +123,7 @@ Select-String -Path revised.txt -Pattern "BAB 1|Tabel 4"
 ### Via `pip install` (Alternatif)
 
 ```bash
-pip install git+https://github.com/andypratama3/office-skill.git
+pip install git+https://github.com/andypratama3/office-skripsi.git
 ```
 
 ## Prasyarat
@@ -138,7 +140,7 @@ pip install git+https://github.com/andypratama3/office-skill.git
 ## Struktur Project
 
 ```
-office-skill/
+office-skripsi/
 ├── SKILL.md                        # Skill utama — panduan skripsi
 ├── package.json
 ├── index.js

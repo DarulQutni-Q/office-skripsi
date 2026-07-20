@@ -2,7 +2,7 @@
 
 Mengajarkan agent coding cara merevisi dokumen skripsi (.docx) secara langsung — edit isi, perbaiki Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi format, dan uji konsistensi lintas bab — dengan target similarity <20%.
 
-> **Auto-load**: Repo ini sudah punya `opencode.json` → `./SKILL.md`. Clone → `cd office-skill` → langsung ter-load otomatis di OpenCode.
+> **Auto-load**: Repo ini sudah punya `opencode.json` → `./SKILL.md`. Clone → `cd office-skripsi` → langsung ter-load otomatis di OpenCode.
 
 ---
 
@@ -25,8 +25,8 @@ Skill ini fokus ke **DOCX** (99% skripsi pakai Word). PPTX/PDF/XLSX adalah pendu
 
 ```bash
 # Clone repo
-git clone https://github.com/andypratama3/office-skill.git
-cd office-skill
+git clone https://github.com/andypratama3/office-skripsi.git
+cd office-skripsi
 
 # Install dependensi Python
 pip install python-docx lxml
@@ -40,7 +40,7 @@ pip install python-docx lxml
 | **Linux** | `sudo apt install libreoffice` | `sudo apt install poppler-utils` | `sudo apt install zip unzip` |
 | **Windows** | Download dari [libreoffice.org](https://libreoffice.org) | [poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) | Bawaan (PowerShell `Expand-Archive`) |
 
-Update: `cd office-skill && git pull`
+Update: `cd office-skripsi && git pull`
 
 ---
 

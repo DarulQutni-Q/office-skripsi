@@ -1,3 +1,5 @@
 {
-  "skills": ["./SKILL.md"]
+  "skills": {
+    "skripsi": "./SKILL.md"
+  }
 }

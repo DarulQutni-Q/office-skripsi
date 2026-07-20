@@ -1,14 +1,14 @@
 {
-  "name": "office-skill",
+  "name": "office-skripsi",
   "version": "0.1.0",
   "description": "AI agent skill for editing skripsi/thesis DOCX documents — content, formatting, TOC, captions, citations, and consistency checks using python-docx, LibreOffice, and raw XML.",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "office-skill": "./index.js"
+    "office-skripsi": "./index.js"
   },
   "scripts": {
-    "docs": "open https://github.com/andypratama3/office-skill"
+    "docs": "open https://github.com/andypratama3/office-skripsi"
   },
   "keywords": [
     "opencode",
@@ -26,10 +26,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andypratama3/office-skill.git"
+    "url": "git+https://github.com/andypratama3/office-skripsi.git"
   },
   "bugs": {
-    "url": "https://github.com/andypratama3/office-skill/issues"
+    "url": "https://github.com/andypratama3/office-skripsi/issues"
   },
-  "homepage": "https://github.com/andypratama3/office-skill#readme"
+  "homepage": "https://github.com/andypratama3/office-skripsi#readme"
 }
