@@ -1,7 +1,7 @@
 {
   "name": "@andypratama3/office-skill",
   "version": "0.1.0",
-  "description": "AI agent skill for editing, manipulating, and generating Office documents (DOCX, PPTX, PDF, XLSX) using python-docx, python-pptx, LibreOffice, and raw XML manipulation.",
+  "description": "AI agent skill for editing skripsi/thesis DOCX documents — content, formatting, TOC, captions, citations, and consistency checks using python-docx, LibreOffice, and raw XML.",
   "type": "module",
   "main": "index.js",
   "bin": {

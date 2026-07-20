@@ -2,17 +2,13 @@
 
 console.log(`
 ┌──────────────────────────────────────────────────────┐
-│                    OFFICE SKILL                      │
-│  AI Agent Skills for Office Document Manipulation    │
+│               SKRIPSI SKILL / OFFICE SKILL           │
+│  AI Agent Skill for Thesis DOCX Editing & Audit      │
 │                                                        │
-│  Usage:                                                │
-│    Source SKILL.md in your AI agent config             │
-│    or open the skill file directly:                    │
+│  Load SKILL.md in your AI agent to get started.        │
 │                                                        │
-│    cat SKILL.md                                       │
-│                                                        │
-│  Sub-skills available:                                 │
-│    skills/docx/       - DOCX/Word documents           │
+│  Sub-skills:                                           │
+│    skills/docx/       - DOCX editing (main)           │
 │    skills/pptx/       - PPTX/PowerPoint               │
 │    skills/pdf/        - PDF handling                  │
 │    skills/spreadsheet/ - XLSX/Spreadsheets            │
