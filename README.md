@@ -94,6 +94,10 @@ python scripts/validate-docx.py revised.docx
 
 # Merge runs sebelum edit XML
 python scripts/merge-runs.py work/unpacked/word/document.xml
+
+# Audit font PDF (deteksi Calibri/theme-font tersisa setelah konversi TNR)
+pdftohtml -xml -i revised.pdf /tmp/doc.xml
+python scripts/audit-pdf-fonts.py /tmp/doc.xml --target Times
 ```
 
 Gunakan `python` (bukan `python3`) di Windows. Di macOS/Linux `python3`.

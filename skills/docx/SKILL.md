@@ -533,3 +533,50 @@ doc.save("output.docx")
 - ❌ Never batch 10+ edits before validating — one bad XML tag corrupts the entire document
 - ❌ Never ignore XML errors — fix them immediately
 - ❌ Never assume LibreOffice headless will recalculate fields correctly
+
+### 9.4 Automatic Daftar Gambar/Tabel (TOF) — Hard-Won Lessons (Word for Mac 16.100.4)
+
+Case: converting manually-typed DAFTAR GAMBAR (46 entries) and DAFTAR TABEL (25 entries) into live Word fields.
+
+**What does NOT work (tested, Word for Mac 16.100.4):**
+
+1. `TOC \t "GambarCaption,1"` → "No table of contents entries found." — `\t` switch ignored.
+2. `TOC \f G` + `TC` fields → same failure — `\f` switch ignored.
+3. `TOC \c "Gambar"` + SEQ fields → **only counted when the SEQ result is VISIBLE**; `\h` (hidden result) or `w:vanish` SEQ fields are NOT collected by `\c`. Visible SEQ results display numbers in the caption text and entries → incompatible with pre-baked manual caption numbers ("Gambar 2.1").
+4. `fldSimple` rewriting / TC via SDT → no.
+
+**What works — the outlineLvl + `\o` recipe:**
+
+1. Custom caption styles in `styles.xml` (e.g. `GambarCaption`, `TabelCaption`), non-italic, with `<w:outlineLvl w:val="6"/>` (gambar) and `w:val="7"` (tabel). outlineLvl is 0-based: `val="6"` = TOC level 7.
+2. Force caption paragraphs to those styles without touching the visible text.
+3. Replace the manual list content with live fields:
+   - Gambar: `TOC \h \z \o "7-7"` → collects outlineLvl-6 paragraphs
+   - Tabel: `TOC \h \z \o "8-8"` → collects outlineLvl-7 paragraphs
+   - Main TOC `TOC \o "1-3" \h \z \u` unaffected.
+4. Set `<w:updateFields w:val="true"/>` in `word/settings.xml` so Word auto-updates on open.
+5. Verify with Word itself (not LibreOffice): open → update all fields twice → count entries per field from XML (`zipfile` + `lxml`, count `PAGEREF` runs after the field begin) → export PDF → compare page numbers against a reference render.
+6. Word Mac AppleScript update flow: update fields in **reverse order twice** (field indices shift after Word rewrites fields), `osascript -e 'tell application "Microsoft Word" to quit'` + `pkill -f "Microsoft Word"` between runs (Word hangs otherwise, error -1712).
+
+**Diagnosing user reports of "empty list" / "No table of figures entries found."**
+
+- The message text identifies the field type: "**figures**" → `\c`-based field (created by ribbon References → Insert Table of Figures, or by Google Docs / WPS round-trip conversion); "**contents**" → `\o`/`\u` field. Our `\o` fields can never produce the "figures" message — so the user's file was re-inserted/converted, not our artifact.
+- `\c` fields with zero SEQ fields of that identifier = empty list + that exact message.
+- A "list still empty" report with our own verified file (46/25 entries, F9-safe) means the file the user opened is a different one (old copy, ribbon re-insert, or Google Docs export).
+- User guidance to always include: update via right-click → Update Field (or Cmd+A → F9); never re-insert via ribbon Insert Table of Figures; never route the thesis through Google Docs/WPS (rewrites custom TOC fields).
+
+### 9.5 Font & Format Compliance (Pedoman) — Hard-Won Lessons
+
+Real case: replacing Calibri with Times New Roman across a 126-page thesis (margins were already per pedoman).
+
+1. **Word strips style-level `rFonts` edits on save.** Patching `styles.xml` (Heading1–5 → TNR) rendered correctly until Word update+save reverted the styles to the theme font. Run-level direct formatting (`<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman" w:eastAsia="Times New Roman"/></w:rPr>` inside each `<w:r>`) survives. If a fix must survive Word saves, patch **runs, not styles**.
+2. **Theme inheritance trap.** A style with NO `rFonts` (e.g. `NoSpacing`, used by Use Case Description table cells) inherits `docDefaults/rPrDefault/rFonts` = `w:asciiTheme="minorHAnsi"` → renders Calibri in Word/PDF even though the XML contains zero "Calibri" strings. Symptom: `grep Calibri` = 0 but PDF shows Calibri → check `docDefaults` + all styles lacking `rFonts`. Fix: explicit TNR `rFonts` at run level for paragraphs of that style (+ the style itself as belt & suspenders for LibreOffice etc.).
+3. **TOC styles are a font trap too.** `TOC1..TOC9` styles commonly carry `w:asciiTheme="minorHAnsi"` — patch them during a document-wide font conversion.
+4. **Verification must be PDF-based and Word-rendered.** Zero "Calibri" in the package is NOT proof. Workflow: patch docx → Word AppleScript `update fields ×2 → save as PDF → close saving no` (PDF comes from the unsaved doc = proof XML edits are intact) → `pdffonts` (embedded subsets) + `pdftohtml -xml` + python fontspec→text mapping to find non-target fonts with actual glyphs (see `scripts/audit-pdf-fonts.py`).
+5. **pdftotext glyph artifacts:** strings like "Descrip8on" or "9dak" are pdftotext stand-ins for unmapped subset ligature glyphs — not broken document text. Arial entries with empty text in pdftohtml output are hyperlink artifacts, harmless.
+6. **Margins (twips math):** 1 cm = 567 twips. Pedoman SI: `w:top="1701" w:right="1985" w:bottom="2268" w:left="1985"` = 3 / 3.5 / 4 / 3.5 cm. Footer distance `w:footer="851"` = 1.5 cm from bottom edge (`708` = 1.25 cm, wrong). A4: `w:pgSz w:w="11906" w:h="16838"`.
+7. **Font swap shifts pagination:** 127→126 pages, TOC pages 106→105. Always re-export and re-verify DAFTAR ISI page numbers and total page count after font changes.
+8. **Zip repack without folder prefix:** `(cd unpacked && zip -q -r -X ../revised.docx .)` — never `zip ../out.docx unpacked/`.
+9. **Clean up Word lock files** (`~$*.docx`) before copying the deliverable, or Word will refuse to open it.
+10. **Caption spec check:** captions must be TNR 10 bold center without trailing period — verify by scanning caption paragraphs in XML for a trailing `.` before claiming compliance.
+
+
