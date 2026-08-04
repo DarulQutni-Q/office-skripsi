@@ -35,6 +35,13 @@ SCRIPTS = os.path.join(REPO_ROOT, "scripts")
 sys.path.insert(0, SCRIPTS)
 import numbering  # noqa: E402
 
+# merge-runs.py has a hyphen, so it loads via file path rather than import.
+import importlib.util  # noqa: E402
+_MR_SPEC = importlib.util.spec_from_file_location(
+    "merge_runs", os.path.join(SCRIPTS, "merge-runs.py"))
+merge_runs = importlib.util.module_from_spec(_MR_SPEC)
+_MR_SPEC.loader.exec_module(merge_runs)
+
 # Paragraphs laid out as (style_name, text). Headings carry LITERAL numbers.
 # The top-level sections match exactly what validate-docx.py requires, so the
 # whole fixture is a coherent skripsi skeleton AND validates cleanly.
@@ -647,6 +654,30 @@ class TestRenderPhase4(unittest.TestCase):
         self.assertIsNone(re.search(r"1\.1\s+1\.1", txt))
         self.assertNotIn("1. 1.1 Latar", txt.replace("\t", " "))
 
+    def test_two_body_lists_restart_per_section_in_render(self):
+        """Two chapters, each with a body list: BOTH must render 1,2 (never
+        4,5,6). LibreOffice continues the counter across nums sharing one
+        abstract, so each list needs its own w:startOverride instance."""
+        paras = [
+            ("Heading 1", "1. PENDAHULUAN"),
+            ("Normal", "1) a satu"),
+            ("Normal", "2) a dua"),
+            ("Heading 1", "2. TINJAUAN PUSTAKA"),
+            ("Normal", "1) b satu"),
+            ("Normal", "2) b dua"),
+            ("Normal", "3) b tiga"),
+        ]
+        _, unpacked = unpacked_fixture(self.tmp, paras)
+        numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        txt = pdf_text(render_to_pdf(repack(unpacked, os.path.join(
+            self.tmp, "multi.docx")), self.render_dir))
+        self.assertIsNotNone(re.search(r"1\s+a satu", txt))
+        self.assertIsNotNone(re.search(r"2\s+a dua", txt))
+        self.assertIsNotNone(re.search(r"1\s+b satu", txt))
+        self.assertIsNotNone(re.search(r"3\s+b tiga", txt))
+        self.assertIsNone(re.search(r"4\s+b", txt),
+                          "second chapter's list must restart at 1, got continuation")
+
 
 class TestBodyRestartUnit(unittest.TestCase):
     """LibreOffice-free checks of the restart-per-section layout."""
@@ -690,6 +721,268 @@ class TestBodyRestartUnit(unittest.TestCase):
                info["style"] not in numbering.DEFAULT_STYLE_LEVELS:
                 body_nids.add(info["numid"])
         self.assertEqual(len(body_nids), 2)   # one body counter per section
+
+    def test_body_nums_carry_start_override(self):
+        """Each per-section body list instance must force restart at 1 via
+        w:lvlOverride/w:startOverride so LibreOffice (and Word) renumber it."""
+        paras = [
+            ("Heading 1", "1. SATU"),
+            ("Normal", "1) a1"),
+            ("Heading 1", "2. DUA"),
+            ("Normal", "1) b1"),
+        ]
+        _, unpacked = unpacked_fixture(self.tmp, paras)
+        numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        xml = document_xml(unpacked)
+        body_nids = [
+            numbering.paragraph_info(m.group(0))["numid"]
+            for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL)
+            if numbering.paragraph_info(m.group(0))["style"]
+            not in numbering.DEFAULT_STYLE_LEVELS
+            and numbering.paragraph_info(m.group(0))["numid"] is not None
+        ]
+        nb = numbering_xml(self.unpacked)
+        for nid in sorted(set(body_nids)):
+            block = re.search(rf'<w:num w:numId="{nid}">(.*?)</w:num>',
+                              nb, re.DOTALL).group(1)
+            self.assertIn('<w:startOverride w:val="1"', block,
+                          f"body num {nid} lacks restart override")
+        # The heading (multilevel) num must NOT be force-restarted per section.
+        head_nid = numbering.paragraph_info(
+            next(m.group(0) for m in re.finditer(
+                r"<w:p\b[^>]*>.*?</w:p>", xml, re.DOTALL)
+                if numbering.text_of_paragraph(m.group(0)) == "SATU"))["numid"]
+        head_block = re.search(rf'<w:num w:numId="{head_nid}">(.*?)</w:num>',
+                               nb, re.DOTALL).group(1)
+        self.assertNotIn("startOverride", head_block)
+
+
+class TestWordSchemaOrder(unittest.TestCase):
+    """Regression tests for the two Word-strict OOXML order bugs.
+
+    LibreOffice and validate-docx.py (well-formed XML only) tolerate both; real
+    Word flags "unreadable content, repair?" for either, so they MUST be pinned.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="numbering_schema_")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        _, self.unpacked = unpacked_fixture(self.tmp)
+
+    # --- Bug 2: CT_Numbering order (all <w:num> after the last <w:abstractNum>)
+
+    @staticmethod
+    def abstract_positions(xml):
+        """List of (start,end) for every <w:abstractNum> block."""
+        return [(m.start(), m.end())
+                for m in re.finditer(r'</w:abstractNum>', xml)]
+
+    @staticmethod
+    def num_starts(xml):
+        return [m.start() for m in re.finditer(r'<w:num w:numId=', xml)]
+
+    def assert_abstracts_before_nums(self, xml, label):
+        nums = self.num_starts(xml)
+        if not nums:
+            return
+        last_abs_end = max(e for _, e in self.abstract_positions(xml))
+        # No abstract may start after the first <w:num> begins; adjacency (==)
+        # is the ideal "all abstracts, then all nums" layout.
+        self.assertLessEqual(last_abs_end, nums[0],
+                             f"{label}: abstractNum block appears after <w:num> "
+                             f"(abs_end={last_abs_end}, first num={nums[0]})")
+
+    def test_insert_helpers_keep_order(self):
+        xml = numbering.read_part(self.unpacked, numbering.NUMBERING_PART)
+        # Build the realistic convert sequence of in-memory inserts:
+        #   heading abstract -> heading num -> body abstract -> body num
+        xml, h_numid, _ = numbering.build_numbering(
+            xml, 3, numbering.default_lvl_texts(3), ["decimal"] * 3, [0] * 3)
+        xml, aid2 = numbering.ensure_single_abstract(xml, "decimal", "%1")
+        xml, b_numid = numbering.alloc_num(xml, aid2)
+        self.assert_abstracts_before_nums(xml, "insert-helper order")
+        # Both allocated nums must be valid ids (reuse or fresh both fine).
+        self.assertIn(h_numid, numbering.num_ids(xml))
+        self.assertIn(b_numid, numbering.num_ids(xml))
+
+    def test_convert_output_numbering_order(self):
+        numbering.convert_document(self.unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        xml = numbering_xml(self.unpacked)
+        self.assert_abstracts_before_nums(xml, "convert(): numbering.xml")
+
+    def test_define_output_numbering_order(self):
+        numbering.ensure_numbering(self.unpacked)
+        xml = numbering_xml(self.unpacked)
+        self.assert_abstracts_before_nums(xml, "define(): numbering.xml")
+
+    # --- Bug 1: CT_PPrBase order (numPr after pStyle/keepNext/etc., before spacing)
+
+    NUM_PRE = ["<w:pStyle", "<w:keepNext", "<w:keepLines",
+               "<w:pageBreakBefore", "<w:framePr", "<w:widowControl"]
+    NUM_POST = ["<w:suppressLineNumbers", "<w:pBdr", "<w:shd", "<w:tabs",
+                "<w:spacing", "<w:ind", "<w:jc", "<w:outlineLvl", "<w:rPr"]
+
+    def assert_numpr_after(self, ppr, markers):
+        idx = ppr.index("<w:numPr")
+        for m in markers:
+            self.assertNotEqual(ppr.index(m), -1, f"{m} missing in {ppr}")
+            self.assertLess(ppr.index(m), idx,
+                            f"{m} must come BEFORE numPr (got {ppr})")
+
+    def assert_numpr_before(self, ppr, markers):
+        idx = ppr.index("<w:numPr")
+        for m in markers:
+            self.assertNotEqual(ppr.index(m), -1, f"{m} missing in {ppr}")
+            self.assertGreater(ppr.index(m), idx,
+                               f"{m} must come AFTER numPr (got {ppr})")
+
+    def test_numpr_after_keepnext_and_widow_control(self):
+        p_xml = ('<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:keepNext/>'
+                 '<w:widowControl w:val="0"/><w:spacing w:after="120"/>'
+                 '<w:outlineLvl w:val="0"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>')
+        out = numbering.add_numpr_to_paragraph(p_xml, 0, 5)
+        ppr = re.search(r'<w:pPr>.*?</w:pPr>', out, re.DOTALL).group(0)
+        self.assert_numpr_after(ppr, self.NUM_PRE[:2])          # pStyle, keepNext
+        self.assert_numpr_before(ppr, ["<w:spacing", "<w:outlineLvl"])
+
+    def test_numpr_after_keepnext_preceding_pstyle(self):
+        # keepNext appears BEFORE pStyle in the source pPr; numPr still after both.
+        p_xml = ('<w:p><w:pPr><w:keepNext/><w:pStyle w:val="Heading1"/>'
+                 '<w:spacing w:before="240"/></w:pPr><w:r><w:t>x</w:t></w:r></w:p>')
+        out = numbering.add_numpr_to_paragraph(p_xml, 0, 5)
+        ppr = re.search(r'<w:pPr>.*?</w:pPr>', out, re.DOTALL).group(0)
+        self.assert_numpr_after(ppr, self.NUM_PRE[:2])          # keepNext, pStyle
+        self.assert_numpr_before(ppr, ["<w:spacing"])
+
+    def test_numpr_first_when_no_predecessors(self):
+        p_xml = ('<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
+                 '<w:r><w:t>x</w:t></w:r></w:p>')
+        out = numbering.add_numpr_to_paragraph(p_xml, 0, 5)
+        ppr = re.search(r'<w:pPr>.*?</w:pPr>', out, re.DOTALL).group(0)
+        self.assert_numpr_before(ppr, ["<w:jc"])
+
+    def test_self_closing_ppr_becomes_single_ppr_with_numpr(self):
+        """python-docx/Word emit <w:pPr/> for empty paragraph props; converting
+        must rewrite it in place, never add a second <w:pPr> (CT_P violation)."""
+        p_xml = '<w:p><w:pPr w:rsidR="00AB12CD"/><w:r><w:t>1) item</w:t></w:r></w:p>'
+        out = numbering.add_numpr_to_paragraph(p_xml, 0, 5)
+        self.assertEqual(out.count("<w:pPr"), 1,
+                         f"expected one <w:pPr>, got: {out}")
+        # attrs preserved on the rewritten open tag, numPr inside, no leftover.
+        self.assertIn('<w:pPr w:rsidR="00AB12CD"><w:numPr>', out)
+        self.assertIn("</w:numPr></w:pPr>", out)
+        self.assertNotIn("<w:pPr/>", out)
+
+    def test_self_closing_ppr_convert_full_pipeline(self):
+        """End-to-end on a fixture paragraph that starts as <w:pPr/>: after
+        convert exactly one pPr exists and it holds the numPr."""
+        paras = [("Normal", "1) kata"), ("Normal", "2) kunci")]
+        _, unpacked = unpacked_fixture(self.tmp, paras)
+        # python-docx emits <w:pPr/> for style="Normal" paragraphs; the fixture
+        # is already in the Word-realistic form this bug was about.
+        numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        out = document_xml(unpacked)
+        for m in re.finditer(r"<w:p\b[^>]*>.*?</w:p>", out, re.DOTALL):
+            p = m.group(0)
+            if numbering.text_of_paragraph(p).startswith("kata"):
+                self.assertEqual(p.count("<w:pPr"), 1, p)
+                self.assertIn("<w:numPr>", p)
+                self.assertNotIn("<w:pPr/>", p)
+
+    def test_realistic_heading_pPr_after_convert_order(self):
+        # A Word-style heading with paragraph-level keepNext + spacing/outlineLvl
+        # is the exact case LibreOffice/validate missed; assert full order.
+        paras = [
+            ("Heading 1", "1. PENDAHULUAN"),
+            ("Heading 2", "1.1 Latar Belakang"),
+        ]
+        _, unpacked = unpacked_fixture(self.tmp, paras)
+        # Inject Word-style block props into the Heading1 paragraph's pPr.
+        doc = document_xml(unpacked)
+        new = ('<w:pPr><w:pStyle w:val="Heading1"/><w:keepNext/>'
+               '<w:spacing w:before="240" w:after="0"/><w:outlineLvl w:val="0"/>'
+               '</w:pPr>')
+        patched = re.sub(r'<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>', new, doc,
+                         count=1)
+        self.assertNotEqual(patched, doc)
+        with open(os.path.join(unpacked, "word", "document.xml"), "w",
+                  encoding="utf-8") as f:
+            f.write(patched)
+        numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        out = document_xml(unpacked)
+        ppr = re.search(r'<w:pPr><w:pStyle w:val="Heading1"/><w:keepNext/>'
+                        r'.*?</w:pPr>', out, re.DOTALL).group(0)
+        order = [ppr.index("<w:pStyle"), ppr.index("<w:keepNext"),
+                 ppr.index("<w:numPr"), ppr.index("<w:spacing"),
+                 ppr.index("<w:outlineLvl")]
+        self.assertEqual(order, sorted(order),
+                         f"pPr child order violates CT_PPrBase: {ppr}")
+
+
+class TestMergeRunsRegressions(unittest.TestCase):
+    """Regressions for two merge-runs.py bugs found during deep real-world
+    testing on a Word-emission-style stress docx.
+
+    Bug A (catastrophic): the paragraph rebuild loop re-located merged runs via
+    ``para.find(constructed_string, pos)``. For split runs that string never
+    exists verbatim, ``find`` returned -1, ``pos`` then jumped too far, and
+    ``result += para[pos:]`` swallowed the rest of the paragraph — deleting up
+    to several whole paragraphs and corrupting the document.
+
+    Bug B: the run regex ``<w:t[^>]*>`` also matched ``<w:tab/>`` (prefix
+    match), swallowing content across run boundaries; and merging could run
+    across a non-text run (e.g. ``<w:tab/>``), dropping it.
+    """
+
+    @staticmethod
+    def merge(xml):
+        return merge_runs.merge_runs_in_xml(xml)
+
+    def test_multi_run_paragraphs_are_preserved(self):
+        xml = ('<w:document xmlns:w="http://schemas.openxmlformats.org/'
+               'wordprocessingml/2006/main"><w:body>'
+               '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+               '<w:r><w:t>1.1</w:t></w:r><w:r><w:t> Latar Belakang</w:t></w:r>'
+               '</w:p>'
+               '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+               '<w:r><w:t>2.1</w:t></w:r><w:r><w:t>.</w:t></w:r>'
+               '<w:r><w:t>1 Definisi Sistem</w:t></w:r></w:p>'
+               '</w:body></w:document>')
+        out = self.merge(xml)
+        paras = re.findall(r'<w:p\b[^>]*>.*?</w:p>', out, re.DOTALL)
+        self.assertEqual(len(paras), 2, "merge-runs deleted whole paragraphs")
+        texts = [re.sub(r'<[^>]+>', '', p) for p in paras]
+        self.assertEqual(texts, ["1.1 Latar Belakang", "2.1.1 Definisi Sistem"])
+
+    def test_tab_run_not_matched_and_not_crossed(self):
+        xml = ('<w:document xmlns:w="http://schemas.openxmlformats.org/'
+               'wordprocessingml/2006/main"><w:body>'
+               '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+               '<w:r><w:t>1.2</w:t></w:r><w:r><w:tab/></w:r>'
+               '<w:r><w:t xml:space="preserve"> Rumusan Masalah</w:t></w:r>'
+               '</w:p></w:body></w:document>')
+        out = self.merge(xml)
+        # The two text runs are NOT consecutive (a <w:tab/> sits between them),
+        # so they must NOT be merged — the tab must survive untouched.
+        self.assertIn('<w:r><w:tab/></w:r>', out,
+                      "merge-runs dropped a <w:tab/> run")
+        self.assertEqual(out.count('<w:r>'), 3, out)
+        text = "".join(re.findall(r'<w:t\b[^>]*>(.*?)</w:t>', out, re.DOTALL))
+        self.assertEqual(text, "1.2 Rumusan Masalah")
+
+    def test_merge_only_combines_identical_rpr(self):
+        xml = ('<w:document xmlns:w="http://schemas.openxmlformats.org/'
+               'wordprocessingml/2006/main"><w:body>'
+               '<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr>'
+               '<w:r><w:t>2.1</w:t></w:r>'
+               '<w:r><w:rPr><w:b/></w:rPr><w:t>.</w:t></w:r>'
+               '<w:r><w:rPr><w:b/></w:rPr><w:t>1 Definisi</w:t></w:r>'
+               '</w:p></w:body></w:document>')
+        out = self.merge(xml)
+        text = "".join(re.findall(r'<w:t\b[^>]*>(.*?)</w:t>', out, re.DOTALL))
+        self.assertEqual(text, "2.1.1 Definisi")
+        # exactly two runs left: [plain "2.1"] + [bold ".1 Definisi"]
+        self.assertEqual(out.count('<w:r>'), 2, out)
 
 
 if __name__ == "__main__":

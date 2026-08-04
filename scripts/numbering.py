@@ -284,9 +284,21 @@ def build_abstract_num(abstract_num_id, levels, lvl_texts, num_fmts, indents):
     return "".join(parts)
 
 
-def build_num(num_id, abstract_num_id):
+def build_num(num_id, abstract_num_id, force_restart=False):
+    """One <w:num> referencing an abstract.
+
+    force_restart=True adds a w:lvlOverride / w:startOverride (ilvl 0 -> start
+    1) so the instance restarts its counter at 1 deterministically. Word starts
+    each num instance at the abstract's start anyway, but LibreOffice continues
+    the counter across every num sharing one abstract, so body-list restarts
+    MUST carry an explicit override to render identically in both.
+    """
+    override = ""
+    if force_restart:
+        override = ('<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/>'
+                    '</w:lvlOverride>')
     return (f'<w:num w:numId="{num_id}">'
-            f'<w:abstractNumId w:val="{abstract_num_id}"/></w:num>')
+            f'<w:abstractNumId w:val="{abstract_num_id}"/>{override}</w:num>')
 
 
 def build_numpr(ilvl, num_id):
@@ -331,7 +343,32 @@ def find_compatible_abstract_id(xml, levels, lvl_texts, num_fmts):
     return None
 
 
+def _insert_after_last_abstract(xml, block):
+    """Insert a <w:abstractNum> block after the last existing one.
+
+    CT_Numbering requires every <w:num> to come after the LAST <w:abstractNum>,
+    so new abstract definitions must go after the tail of the abstract section
+    (i.e. before the first <w:num>), never after an existing <w:num>.
+    """
+    idx = -1
+    for m in _ABSTRACT_RE.finditer(xml):
+        idx = m.end()
+    if idx < 0:
+        # No abstractNum yet: place right after <w:numbering ...> open tag.
+        open_end = xml.find(">") + 1
+        if open_end <= 0 or not xml.startswith("<w:numbering"):
+            raise ValueError("malformed numbering.xml: missing <w:numbering>")
+        return xml[:open_end] + block + xml[open_end:]
+    return xml[:idx] + block + xml[idx:]
+
+
 def _insert_before_numbering_close(xml, block):
+    """Insert a <w:num> block right before </w:numbering>.
+
+    Kept for <w:num> insertion only: nums legally follow the whole abstract
+    section, so placing them just before the closing tag is schema-valid
+    (provided abstract inserts go through _insert_after_last_abstract).
+    """
     idx = xml.rfind("</w:numbering>")
     if idx < 0:
         raise ValueError("malformed numbering.xml: missing </w:numbering>")
@@ -389,7 +426,7 @@ def build_numbering(num_xml, levels, lvl_texts, num_fmts, indents):
     if aid is None:
         ids = abstract_num_ids(num_xml)
         aid = (max(ids) + 1) if ids else 0
-        num_xml = _insert_before_numbering_close(
+        num_xml = _insert_after_last_abstract(
             num_xml, build_abstract_num(aid, levels, lvl_texts, num_fmts, indents))
     num_id = num_for_abstract(num_xml, aid)
     if num_id is None:
@@ -425,16 +462,17 @@ def ensure_single_abstract(num_xml, num_fmt, lvl_text):
     if aid is None:
         ids = abstract_num_ids(num_xml)
         aid = (max(ids) + 1) if ids else 0
-        num_xml = _insert_before_numbering_close(
+        num_xml = _insert_after_last_abstract(
             num_xml, build_single_abstract(aid, num_fmt, lvl_text))
     return num_xml, aid
 
 
-def alloc_num(num_xml, abstract_num_id):
+def alloc_num(num_xml, abstract_num_id, force_restart=False):
     """Append a fresh <w:num> referencing abstract_num_id; returns (xml, num_id)."""
     nids = num_ids(num_xml)
     num_id = (max(nids) + 1) if nids else 1
-    num_xml = _insert_before_numbering_close(num_xml, build_num(num_id, abstract_num_id))
+    num_xml = _insert_before_numbering_close(
+        num_xml, build_num(num_id, abstract_num_id, force_restart=force_restart))
     return num_xml, num_id
 
 
@@ -546,13 +584,24 @@ def strip_prefix_text(p_xml, prefix):
 def add_numpr_to_paragraph(p_xml, level, num_id):
     """Return p_xml with a w:numPr (ilvl=level, numId=num_id) in its pPr.
 
-    pPr is created if absent; numPr is inserted after pStyle to follow the
-    OOXML child order (pStyle … numPr …). Removes an existing numPr first so a
-    re-convert never stacks duplicate numPr.
+    pPr is created if absent; numPr is inserted at the schema-correct position
+    for CT_PPrBase — after the last of the siblings that must PRECEDE numPr
+    (pStyle, keepNext, keepLines, pageBreakBefore, framePr, widowControl) and
+    before everything else (spacing, ind, jc, outlineLvl, rPr, ...). Removes an
+    existing numPr first so a re-convert never stacks duplicate numPr.
     """
     numpr = build_numpr(level, num_id)
     ppr = re.search(r"<w:pPr\b[^>]*>.*?</w:pPr>", p_xml, re.DOTALL)
     if not ppr:
+        # Self-closing <w:pPr/> (Word & python-docx emit these for empty
+        # paragraph properties). Rewrite it in place — inserting a second pPr
+        # would violate CT_P (one pPr per paragraph) and make Word offer to
+        # repair the file. Preserve any attributes (e.g. w:rsidR).
+        sc = re.search(r"<w:pPr\b([^>]*)/>", p_xml)
+        if sc:
+            attrs = sc.group(1)
+            new = f"<w:pPr{attrs}>{numpr}</w:pPr>"
+            return p_xml[:sc.start()] + new + p_xml[sc.end():]
         m = re.match(r"(^\s*<w:p\b[^>]*>)", p_xml)
         if not m:
             raise ValueError("malformed paragraph: no <w:p> open tag")
@@ -561,13 +610,24 @@ def add_numpr_to_paragraph(p_xml, level, num_id):
 
     body = ppr.group(0)
     gt = body.index(">")                     # end of "<w:pPr …>"
-    m_style = re.match(r"^<w:pStyle\b[^>]*/>", body[gt + 1:])
-    ins = gt + 1 + m_style.end() if m_style else gt + 1
     # Remove any existing numPr so re-converting stays idempotent.
     sew = re.sub(r"<w:numPr>.*?</w:numPr>", "", body, flags=re.DOTALL)
     if "<w:numPr" in sew:
         raise ValueError("unexpected existing w:numPr in paragraph")
-    new_body = sew[:ins] + numpr + sew[ins:]
+    # Find how many schema-precedessors of numPr follow <w:pPr>.
+    pre = re.compile(
+        r'^\s*(?:<w:pStyle\b[^>]*/>|'
+        r'<w:keepNext\s*/>|<w:keepLines\s*/>|<w:pageBreakBefore\s*/>|'
+        r'<w:framePr\b[^>]*/>|<w:framePr\b[^>]*>.*?</w:framePr>|'
+        r'<w:widowControl\b[^>]*/>)')
+    content = sew[gt + 1:]
+    ins = 0
+    while True:
+        m = pre.match(content[ins:])
+        if not m:
+            break
+        ins += m.end()
+    new_body = sew[:gt + 1 + ins] + numpr + sew[gt + 1 + ins:]
     return p_xml[:ppr.start()] + new_body + p_xml[ppr.end():]
 
 
@@ -582,7 +642,8 @@ def convert_document(unpacked_dir, style_levels, levels=3, lvl_texts=None,
     Headings get the shared multilevel numId at their style level. Body
     numbered lists (Non-heading paragraphs with a literal prefix) get their
     own single-level instance, and each top-level section restarts it at 1
-    with a fresh numId (independent counters). Idempotent: already-AUTO
+    with a fresh numId carrying a w:startOverride (independent counters that
+    render identically in Word and LibreOffice). Idempotent: already-AUTO
     paragraphs are left alone.
 
     Returns dict {num_id, abstract_num_id, changed, body_sections}.
@@ -631,7 +692,8 @@ def convert_document(unpacked_dir, style_levels, levels=3, lvl_texts=None,
                     # body list item: per-section counter (restarts at 1).
                     target_numid = section_numid.get(section)
                     if target_numid is None:
-                        num_xml, target_numid = alloc_num(num_xml, body_aid)
+                        num_xml, target_numid = alloc_num(
+                            num_xml, body_aid, force_restart=True)
                         section_numid[section] = target_numid
                     target_level = 0
                 p_xml = strip_prefix_text(p_xml, prefix)

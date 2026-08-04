@@ -17,25 +17,29 @@ def merge_runs_in_xml(xml_content):
         runs = list(re.finditer(
             r'<w:r\b[^>]*>'
             r'(?:<w:rPr>.*?</w:rPr>)?'
-            r'<w:t[^>]*>.*?</w:t>'
+            r'<w:t\b[^>]*>.*?</w:t>'
             r'</w:r>',
             para, re.DOTALL
         ))
         if len(runs) < 2:
             return para
 
-        merged = []
+        result = []
+        prev_end = 0
         i = 0
         while i < len(runs):
-            current = runs[i]
-            current_text = current.group(0)
+            result.append(para[prev_end:runs[i].start()])
+            current_text = runs[i].group(0)
             rpr_match = re.search(r'<w:rPr>.*?</w:rPr>', current_text, re.DOTALL)
             current_rpr = rpr_match.group(0) if rpr_match else ''
 
             j = i + 1
             while j < len(runs):
-                next_run = runs[j]
-                next_text = next_run.group(0)
+                # only merge runs that are truly consecutive (no intervening
+                # element such as <w:tab/>, <w:br/>, <w:drawing/> between them)
+                if runs[j - 1].end() != runs[j].start():
+                    break
+                next_text = runs[j].group(0)
                 next_rpr_match = re.search(r'<w:rPr>.*?</w:rPr>', next_text, re.DOTALL)
                 next_rpr = next_rpr_match.group(0) if next_rpr_match else ''
                 if current_rpr == next_rpr:
@@ -46,28 +50,20 @@ def merge_runs_in_xml(xml_content):
             if j > i + 1:
                 combined_text = ''
                 for k in range(i, j):
-                    t_match = re.search(r'<w:t[^>]*>(.*?)</w:t>', runs[k].group(0), re.DOTALL)
+                    t_match = re.search(r'<w:t\b[^>]*>(.*?)</w:t>', runs[k].group(0), re.DOTALL)
                     if t_match:
                         combined_text += t_match.group(1)
                 escaped = combined_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                tag_match = re.search(r'<w:t[^>]*>', current_text)
+                tag_match = re.search(r'<w:t\b[^>]*>', current_text)
                 t_tag_open = tag_match.group(0) if tag_match else '<w:t xml:space="preserve">'
-                merged_run = f'<w:r>{current_rpr}{t_tag_open}{escaped}</w:t></w:r>'
-                merged.append(merged_run)
+                result.append(f'<w:r>{current_rpr}{t_tag_open}{escaped}</w:t></w:r>')
             else:
-                merged.append(current_text)
+                result.append(current_text)
+            prev_end = runs[j - 1].end()
             i = j
 
-        result = ''
-        pos = 0
-        for m in merged:
-            idx = para.find(m, pos)
-            if idx > pos:
-                result += para[pos:idx]
-            result += m
-            pos += len(m)
-        result += para[pos:]
-        return result
+        result.append(para[prev_end:])
+        return "".join(result)
 
     return re.sub(
         r'<w:p\b[^>]*>.*?</w:p>',
