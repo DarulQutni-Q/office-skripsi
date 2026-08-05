@@ -985,5 +985,72 @@ class TestMergeRunsRegressions(unittest.TestCase):
         self.assertEqual(out.count('<w:r>'), 2, out)
 
 
+class TestPPrAttributes(unittest.TestCase):
+    """Bug C: paragraph_info only matched pPr WITHOUT attributes.
+
+    Real Word documents almost always write `<w:pPr w:rsidP="...">` /
+    `<w:pPr w:rsidRPr="...">`. The old regex `<w:pPr>.*?</w:pPr>` missed those,
+    so heading styles were not detected: a hardcoded heading was mis-routed to
+    the body-list numId (single-level) instead of the multilevel heading numId,
+    and already-AUTO paragraphs were reported as unnumbered.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="numbering_ppr_attr_")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_heading_with_ppr_attribute_classified_by_style(self):
+        p_xml = ('<w:p w:rsidR="00AA"><w:pPr w:rsidP="00BB">'
+                 '<w:pStyle w:val="Heading2"/><w:outlineLvl w:val="1"/>'
+                 '</w:pPr><w:r><w:t>1.2 Latar Belakang</w:t></w:r></w:p>')
+        info = numbering.paragraph_info(p_xml)
+        self.assertEqual(info["style"], "Heading2")
+        status, level = numbering.classify(info, numbering.DEFAULT_STYLE_LEVELS)
+        self.assertEqual((status, level), (numbering._STATUS_HARDCODED, 1))
+
+    def test_auto_paragraph_with_ppr_attribute_detected(self):
+        p_xml = ('<w:p><w:pPr w:rsidP="00CC">'
+                 '<w:pStyle w:val="Heading1"/>'
+                 '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="10"/></w:numPr>'
+                 '</w:pPr><w:r><w:t>PENDAHULUAN</w:t></w:r></w:p>')
+        info = numbering.paragraph_info(p_xml)
+        self.assertEqual(info["style"], "Heading1")
+        self.assertIsNotNone(info["numpr"])
+        status, level = numbering.classify(info, numbering.DEFAULT_STYLE_LEVELS)
+        self.assertEqual((status, level), (numbering._STATUS_AUTO, 0))
+
+    def test_convert_routes_ppr_attr_heading_to_heading_numid(self):
+        paras = [("Heading 1", "1. PENDAHULUAN"),
+                 ("Heading 2", "1.1 Latar Belakang"),
+                 ("Normal", "1) Langkah satu")]
+        _, unpacked = unpacked_fixture(self.tmp, paras)
+        # Give every paragraph a realistic <w:pPr w:rsidP=...> attribute.
+        doc = document_xml(unpacked)
+        patched = re.sub(
+            r'<w:pPr>((?:(?!</w:pPr>).)*?)</w:pPr>',
+            lambda m: f'<w:pPr w:rsidP="00AA">{m.group(1)}</w:pPr>',
+            doc, flags=re.DOTALL)
+        self.assertIn("w:rsidP", patched)
+        with open(os.path.join(unpacked, "word", "document.xml"), "w",
+                  encoding="utf-8") as f:
+            f.write(patched)
+
+        res = numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        out = document_xml(unpacked)
+        h_num = res["num_id"]
+        # The Heading2 must be linked to the MULTILEVEL heading numId (ilvl 1),
+        # not to a body-list instance.
+        h2 = next(p for p in re.findall(r'<w:p\b[^>]*>.*?</w:p>', out, re.DOTALL)
+                  if "Latar Belakang" in p)
+        self.assertIn(f'<w:numId w:val="{h_num}"/>', h2)
+        self.assertIn('<w:ilvl w:val="1"/>', h2)
+        # Body item still gets its own per-section body numId.
+        body = next(p for p in re.findall(r'<w:p\b[^>]*>.*?</w:p>', out, re.DOTALL)
+                    if "Langkah" in p)
+        body_num = re.search(r'<w:numId w:val="(\d+)"', body).group(1)
+        self.assertNotEqual(int(body_num), h_num)
+        self.assertIn('<w:ilvl w:val="0"/>', body)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

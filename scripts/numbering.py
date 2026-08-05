@@ -107,7 +107,7 @@ def text_of_paragraph(p_xml):
 
 def paragraph_info(p_xml):
     """Extract (style, numPr/ilvl/numId, text) from one <w:p> block."""
-    ppr = re.search(r"<w:pPr>.*?</w:pPr>", p_xml, re.DOTALL)
+    ppr = re.search(r"<w:pPr\b[^>]*>.*?</w:pPr>", p_xml, re.DOTALL)
     ppr_xml = ppr.group(0) if ppr else ""
 
     style = None
