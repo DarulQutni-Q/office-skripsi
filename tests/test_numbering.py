@@ -345,8 +345,45 @@ class TestAnalyzePhase1(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("PASS:", proc.stdout)
 
+    def test_prose_starting_with_number_not_flagged(self):
+        """Bug E: prose paragraphs that merely START with a number ("2026
+        merupakan…", "2.5 kg beras…", "10 metode…") were classified HARDCODED
+        and convert stripped their leading number + renumbered them as list
+        items. They must be OK (untouched)."""
+        body = [
+            ("Heading 1", "1. PENDAHULUAN"),
+            ("Normal", "2026 merupakan tahun kelulusan peneliti."),
+            ("Normal", "10 metode yang digunakan antara lain…"),
+            ("Normal", "2.5 kg beras dikonsumsi tiap bulan."),
+            ("Normal", "1) Langkah pertama"),      # real list marker: still caught
+        ]
+        _, unpacked = unpacked_fixture(self.tmp, body)
+        records = numbering.analyze_document(
+            unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        by_text = {r["text"]: r["status"] for r in records}
+        self.assertEqual(by_text["2026 merupakan tahun kelulusan peneliti."],
+                         numbering._STATUS_OK)
+        self.assertEqual(by_text["10 metode yang digunakan antara lain…"],
+                         numbering._STATUS_OK)
+        self.assertEqual(by_text["2.5 kg beras dikonsumsi tiap bulan."],
+                         numbering._STATUS_OK)
+        self.assertEqual(by_text["1) Langkah pertama"],
+                         numbering._STATUS_HARDCODED)
+        self.assertEqual(by_text["1. PENDAHULUAN"], numbering._STATUS_HARDCODED)
 
-class TestDefinePhase2(unittest.TestCase):
+    def test_convert_leaves_prose_number_intact(self):
+        """convert must NOT strip a number from prose text ("2026 merupakan…")."""
+        body = [
+            ("Heading 1", "1. PENDAHULUAN"),
+            ("Normal", "2026 merupakan tahun kelulusan peneliti."),
+            ("Normal", "10) Kesepuluh item"),      # a real body list item
+        ]
+        _, unpacked = unpacked_fixture(self.tmp, body)
+        numbering.convert_document(unpacked, numbering.DEFAULT_STYLE_LEVELS)
+        xml = document_xml(unpacked)
+        self.assertIn("2026 merupakan", xml, "prose number was stripped")
+        self.assertNotIn("1) Kesepuluh", xml, "body-list prefix not stripped")
+        self.assertNotIn("1. PENDAHULUAN", xml, "heading prefix not stripped")
     """define subcommand: multilevel definition, idempotency, merge safety."""
 
     def setUp(self):
@@ -983,6 +1020,33 @@ class TestMergeRunsRegressions(unittest.TestCase):
         self.assertEqual(text, "2.1.1 Definisi")
         # exactly two runs left: [plain "2.1"] + [bold ".1 Definisi"]
         self.assertEqual(out.count('<w:r>'), 2, out)
+
+    def test_merge_keeps_xml_entities_single_escaped(self):
+        """Bug D: merged text was re-escaped on top of already-escaped content,
+        turning "AT&amp;T" into "AT&amp;amp;T" (renders as "AT&amp;T")."""
+        xml = ('<w:document xmlns:w="http://schemas.openxmlformats.org/'
+               'wordprocessingml/2006/main"><w:body>'
+               '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>'
+               '<w:r><w:t>AT&amp;T</w:t></w:r>'
+               '<w:r><w:t xml:space="preserve"> vs O&amp;L a &lt; b &gt; c'
+               '</w:t></w:r>'
+               '</w:p></w:body></w:document>')
+        out = self.merge(xml)
+        self.assertNotIn("&amp;amp;", out, "double-escaped an XML entity")
+        self.assertIn("<w:t", out)
+        text = "".join(re.findall(r'<w:t\b[^>]*>(.*?)</w:t>', out, re.DOTALL))
+        self.assertEqual(text, "AT&amp;T vs O&amp;L a &lt; b &gt; c")
+
+    def test_merge_preserves_leading_trailing_space(self):
+        """Merged runs whose text starts/ends with whitespace must keep
+        xml:space='preserve' so Word does not trim the space."""
+        xml = ('<w:document xmlns:w="http://schemas.openxmlformats.org/'
+               'wordprocessingml/2006/main"><w:body>'
+               '<w:p><w:r><w:t> </w:t></w:r><w:r><w:t>tail text</w:t></w:r>'
+               '</w:p></w:body></w:document>')
+        out = self.merge(xml)
+        self.assertIn('xml:space="preserve"', out,
+                      "leading space lost on merged run")
 
 
 class TestPPrAttributes(unittest.TestCase):

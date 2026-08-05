@@ -154,6 +154,31 @@ def literal_prefix(text):
     return None, None
 
 
+def _is_plausible_list_prefix(text):
+    """True when a literal numeric prefix is a REAL typed list marker.
+
+    NUM_PREFIX_RE alone also matches prose that merely starts with a number
+    ("2026 merupakan…", "10 metode yang…", "2.5 kg beras…") — converting those
+    would STRIP the number from the text and misnumber the paragraph as a list
+    item. Body lists are typed with an explicit separator (".", ")") or a
+    dotted multi-level number ("1.1", "2.1.2") whose first word starts
+    uppercase (a list title), which prose never satisfies.
+    """
+    m = NUM_PREFIX_RE.match(text)
+    if not m:
+        return False
+    digits = m.group(1)
+    if len(digits) == 4 and digits.isdigit() and 1900 <= int(digits) <= 2099:
+        return False                     # "2024 …" is a year, not a list item
+    rest = text[len(digits):]
+    if rest.startswith((".", ")")):
+        return True                      # "1.", "1)", "2.1.2)", "10."
+    if "." in digits:
+        after_space = rest.lstrip(" \t")
+        return bool(after_space) and after_space[0].isupper()
+    return False                         # "10 metode…", "2.5 kg…" are prose
+
+
 def classify(info, style_levels):
     """Return (status, level) for one paragraph.
 
@@ -171,7 +196,7 @@ def classify(info, style_levels):
         if prefix:
             return _STATUS_HARDCODED, style_level
         return _STATUS_WARN_NO_NUMBER, style_level
-    if prefix:
+    if prefix and _is_plausible_list_prefix(info["text"]):
         return _STATUS_HARDCODED, lit_level
     return _STATUS_OK, None
 

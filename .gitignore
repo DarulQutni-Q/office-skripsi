@@ -2,6 +2,8 @@ node_modules/
 .DS_Store
 *.swp
 *.swo
+__pycache__/
+*.pyc
 
 # Ignore personal thesis/laporan files — these are private
 # and should never be committed to this skill repository

@@ -53,10 +53,17 @@ def merge_runs_in_xml(xml_content):
                     t_match = re.search(r'<w:t\b[^>]*>(.*?)</w:t>', runs[k].group(0), re.DOTALL)
                     if t_match:
                         combined_text += t_match.group(1)
-                escaped = combined_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                # combined_text is the CONCATENATION of already-escaped XML
+                # content — re-escaping it would double-escape entities
+                # ("AT&amp;T" -> "AT&amp;amp;T"). Use it verbatim.
                 tag_match = re.search(r'<w:t\b[^>]*>', current_text)
                 t_tag_open = tag_match.group(0) if tag_match else '<w:t xml:space="preserve">'
-                result.append(f'<w:r>{current_rpr}{t_tag_open}{escaped}</w:t></w:r>')
+                needs_preserve = (combined_text[:1].isspace()
+                                  or combined_text[-1:].isspace()
+                                  or '  ' in combined_text)
+                if needs_preserve and 'xml:space' not in t_tag_open:
+                    t_tag_open = t_tag_open.replace('<w:t', '<w:t xml:space="preserve"', 1)
+                result.append(f'<w:r>{current_rpr}{t_tag_open}{combined_text}</w:t></w:r>')
             else:
                 result.append(current_text)
             prev_end = runs[j - 1].end()
