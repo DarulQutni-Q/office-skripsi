@@ -33,6 +33,27 @@ Now you have the original text to compare against after edits.
 python3 ../scripts/merge-runs.py unpacked/word/document.xml
 ```
 
+## Step 3.5: Automatic Heading Numbering (optional)
+
+If headings are typed by hand (`1.`, `1.1`, `2.1.2 ...`) they are hardcoded — deleting one doesn't renumber the rest. Convert them to Word's native multilevel numbering (works only after merge-runs):
+
+```bash
+# Read-only audit: exits 1 if any hardcoded prefixes remain
+python3 ../scripts/numbering.py unpacked/ analyze
+
+# Fix: attach w:numPr + strip the literal "1.2.3" prefix (idempotent)
+python3 ../scripts/numbering.py unpacked/ convert
+```
+
+Run this BEFORE making other text edits, then verify by rendering (numbers aren't a cached field, so LibreOffice is authoritative):
+
+```bash
+soffice --headless --convert-to pdf unpacked-repack.pdf  # or repack first (Step 5)
+pdftotext -layout unpacked-repack.pdf unpacked-repack.txt
+```
+
+Delete a section and re-render — surviving headings must renumber themselves.
+
 ## Step 4: Make Edits
 
 Edit the XML file (`unpacked/word/document.xml`) with targeted str_replace. Always include surrounding context to ensure uniqueness.

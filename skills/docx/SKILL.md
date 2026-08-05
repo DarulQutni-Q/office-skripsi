@@ -185,6 +185,43 @@ content = content.replace(old, new)
 
 Include enough surrounding XML context (30-60 chars) to make the match unique.
 
+### 2.5 Automatic Multilevel Numbering (`numbering.py`)
+
+Thesis headings are usually typed by hand as literal text (`1.`, `1.1`, `2.1.2`). That is the "deleting one doesn't renumber the rest" bug. The fix is to convert that literal prefix into Word's native multilevel numbering: a `w:numPr` on each paragraph (with `w:ilvl`) driven by `word/numbering.xml`. Numbers then derive from paragraph order + level, so insert / delete / level-change renumbers automatically.
+
+**Pipeline placement** — runs in the unpack phase, right AFTER `merge-runs.py`, BEFORE rezip + `validate-docx.py`. Run it on the unpaked dir, not the .docx:
+
+```bash
+python3 scripts/numbering.py work/unpacked/ analyze    # read-only audit (exit 1 if hardcoded found)
+python3 scripts/numbering.py work/unpacked/ convert    # define + link + strip (the real fix)
+```
+
+Three subcommands, all idempotent and merge-safe (never clobber existing numbering):
+
+| Subcommand | What it does | Exit code |
+|------------|--------------|-----------|
+| `analyze` | Lists every heading / numbered-list paragraph with its intended level, literal prefix, and numbering state; safe any time | 1 if hardcoded prefixes remain |
+| `define` | Ensures a multilevel `<abstractNum>` + `<num>` exists in `numbering.xml`, reusing a matching one and picking the next free ids; prints the resulting `numId` | 0 |
+| `convert` | `define` + attach `w:numPr` (after `pStyle`) + strip the literal `1.2.3` prefix; re-audits and exits 1 if any hardcoded prefix remains | 0/1 |
+
+Default behavior maps `Heading1`→0, `Heading2`→1, ... (0-based `w:ilvl`). Common flags:
+
+- `--style-level H1=0,H2=1,...` — override the style→level map.
+- `--levels N` / `--lvl-text T1,T2,T3` / `--num-fmt FMT` / `--indent L1,L2,L3` — heading definition (default level text `%1`, `%1.%2`, `%1.%2.%3`).
+- `--list-num-fmt FMT` / `--list-lvl-text TEXT` — body **numbered lists** (e.g. `1)` ... `2)` ...), single-level, restarted at 1 per top-level section.
+
+**Verify by rendering, not by grepping XML.** Multilevel numbering is NOT a cached field, so LibreOffice renders it correctly:
+
+```bash
+soffice --headless --convert-to pdf work/revised.docx
+pdftotext -layout work/revised.pdf work/revised.txt
+grep -nE "^\s*1\.1|^\s*2\.1\.2|Langkah" work/revised.txt
+```
+
+Then delete a section and re-render: the surviving headings must renumber themselves (e.g. `2.1.2` → `2.1.1`).
+
+> Word must also have `numbering.xml` referenced from the document part (`word/_rels/document.xml.rels`) and an override in `[Content_Types].xml`. `numbering.py` adds these only if the part is missing — see `scripts/numbering.py` if you ever do this by hand.
+
 ---
 
 ## 3. Field Codes (TOC, SEQ, PAGEREF)
@@ -480,7 +517,7 @@ doc.save("output.docx")
 
 | Issue | How to Detect | How to Fix |
 |-------|---------------|------------|
-| Missing heading numbers | Check `numPr` in heading XML or missing prefix | Add `w:numPr` with correct `w:ilvl` in paragraph properties |
+| Missing heading numbers | Check `numPr` in heading XML or missing prefix | Add `w:numPr` with correct `w:ilvl` in paragraph properties, or run `numbering.py ... convert` (§2.5) |
 | Duplicate caption numbers | SEQ values not in [1,2,3,N] sequence | Renumber SEQ fields (see §3.2) |
 | TOC shows wrong pages | PAGEREF cached values stale | Render PDF → extract pages → hardcode PAGEREF values |
 | Caption references wrong | Text says "Table 5" but SEQ shows Table 4 | Fix the text reference manually |
@@ -510,7 +547,7 @@ doc.save("output.docx")
 
 ### 9.1 Common Problems Found in Real Theses
 
-1. **Headings without numbers** — Sub-chapters in Landasan Teori added later but never numbered.
+1. **Headings without numbers** — Sub-chapters in Landasan Teori added later but never numbered (or numbered by hand as literal `1.2` text that breaks on delete — fix with `numbering.py ... convert`, §2.5).
 2. **SEQ fields out of sync** — Caption numbers not sequential because insertions were never renumbered.
 3. **Duplicate biography entries** — Same school listed twice (e.g. "SD Negeri X" and "SD 001 X") due to copy-paste errors.
 4. **Stale TOC** — Daftar Isi/Tabel/Gambar still shows old page numbers because fields were never updated.
@@ -518,7 +555,7 @@ doc.save("output.docx")
 
 ### 9.2 Solutions
 
-1. **Headings**: Search for all `w:pStyle w:val="Heading3"` and check for `numPr` or hardcoded number prefix. Add `w:numPr` if missing.
+1. **Headings**: Search for all `w:pStyle w:val="Heading3"` and check for `numPr` or hardcoded number prefix. Add `w:numPr` if missing — or run `numbering.py ... analyze` / `convert` to do it for the whole document (§2.5).
 2. **SEQ fields**: List all `SEQ Tabel`/`SEQ Gambar` and verify sequential ordering. Renumber with script (§3.2).
 3. **Biography**: Ask the author — never delete without confirmation. Could be a valid timeline or a typo.
 4. **TOC**: After all edits, ask user to open in Word and press Ctrl+A → F9 to refresh all fields. This is more reliable than LibreOffice recalculation.

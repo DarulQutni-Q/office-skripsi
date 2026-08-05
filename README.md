@@ -95,6 +95,10 @@ python scripts/validate-docx.py revised.docx
 # Merge runs sebelum edit XML
 python scripts/merge-runs.py work/unpacked/word/document.xml
 
+# Penomoran multilevel otomatis (setelah merge-runs): audit / fix heading hardcoded
+python scripts/numbering.py work/unpacked/ analyze
+python scripts/numbering.py work/unpacked/ convert
+
 # Audit font PDF (deteksi Calibri/theme-font tersisa setelah konversi TNR)
 pdftohtml -xml -i revised.pdf /tmp/doc.xml
 python scripts/audit-pdf-fonts.py /tmp/doc.xml --target Times
@@ -166,7 +170,8 @@ office-skripsi/
 ├── scripts/
 │   ├── validate-docx.py            # Validasi DOCX
 │   ├── docx-tools.py               # Analisis isi
-│   └── merge-runs.py               # Gabung fragmentasi Word
+│   ├── merge-runs.py               # Gabung fragmentasi Word
+│   └── numbering.py                # Penomoran multilevel otomatis (heading hardcoded)
 └── examples/
     └── EXAMPLE_SKRIPSI_WORKFLOW.md
 ```
@@ -175,7 +180,7 @@ office-skripsi/
 
 | Masalah Skripsi | Solusi di Skill Ini |
 |----------------|---------------------|
-| Heading tidak bernomor | Edit XML: tambah `w:numPr` |
+| Heading tidak bernomor | Edit XML: tambah `w:numPr` / jalankan `numbering.py convert` |
 | Caption tabel/gambar tidak urut | Renumber SEQ field |
 | Daftar Isi halamannya salah | Hardcode PAGEREF dari render PDF |
 | Sitasi tidak punya pasangan | Cross-check otomatis |

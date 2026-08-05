@@ -15,6 +15,7 @@ node_modules/
 # Work directories (generated during editing sessions)
 work/
 unpacked/
+test/
 
 # Ignore any personal project-specific progress files
 TASK_PROGRESS_*.md

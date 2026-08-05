@@ -81,6 +81,8 @@ Pastikan LibreOffice (`soffice`) dan Poppler (`pdftotext`) sudah terinstall dan 
 
 > **Windows users**: Ganti `unzip` dengan `Expand-Archive`, `zip` dengan `Compress-Archive`, `cp` dengan `Copy-Item`. Gunakan `python` bukan `python3`. Jalankan LibreOffice dari path lengkap: `& "C:\Program Files\LibreOffice\program\soffice.exe" --headless --convert-to pdf file.docx`
 
+> **Heading bernomor manual (diketik tangan, mis. `1.`, `1.1`, `2.1.2`)?** Nomor itu hardcoded — hapus satu, yang lain tidak ikut berhitung ulang. Jalankan `python3 scripts/numbering.py work/unpacked/ convert` **setelah** merge-runs (langkah 3) supaya nomor jadi otomatis via `w:numPr` + `numbering.xml` — lihat §4D.
+
 ---
 
 ## 4. Aturan Universal (Prioritas Tertinggi)
@@ -209,6 +211,41 @@ Pedoman PDF biasanya ada di `~/Downloads/Pedoman-Penulisan-*.pdf`; ekstrak denga
 
 ---
 
+## 4D. PENOMORAN MULTILEVEL OTOMATIS (`numbering.py`) — Resep Terbukti
+
+**Konteks**: heading skripsi biasa diketik tangan sebagai teks biasa (`1.`, `1.1`, `2.1.2 PENDAHULUAN`, dsb.). Itu **hardcoded** — hapus satu sub-bab, sub-bab setelahnya tidak ikut berhitung ulang (bug "deleting one doesn't renumber the rest").
+
+### Solusi
+
+Konversi prefix literal itu menjadi penomoran multilevel asli Word: `w:numPr` (dengan `w:ilvl`) di tiap paragraf, digerakkan oleh `word/numbering.xml`. Nomor lalu dihitung dari urutan paragraf + level, sehingga insert / delete / ubah level otomatis menomor-ulang.
+
+### Alur pakai (di fase unpack, setelah merge-runs)
+
+```bash
+# 1) Audit dulu (read-only, aman kapan saja) — exit 1 kalau ada prefix hardcoded
+python3 scripts/numbering.py work/unpacked analyze
+
+# 2) Fix: define + link w:numPr + strip prefix literal (idempotent, merge-safe)
+python3 scripts/numbering.py work/unpacked convert
+
+# 3) Verifikasi WAJIB via render PDF (nomor bukan field cache, jadi soffice benar)
+soffice --headless --convert-to pdf work/revised.docx
+pdftotext -layout work/revised.pdf work/revised.txt
+grep -nE "^\s*1\.1|^\s*2\.1\.2|Langkah" work/revised.txt
+```
+
+Setelah itu hapus satu section lalu render ulang: heading yang bertahan **harus** ganti nomor sendiri (contoh `2.1.2` → `2.1.1`).
+
+### Fakta penting (jangan dilawan)
+
+1. **Body numbered list (gaya `Normal`, mis. `1)` `2)` `3)`)** pakai definisi single-level **sendiri yang restart di 1 tiap section tingkat-1** — JANGAN digabung dengan counter heading (kalau digabung, list di section 5 tampil `6, 7, 8`). Default `--list-lvl-text "%1"`; untuk gaya `1)` pakai `--list-lvl-text "%1)"`.
+2. **Idempotent & merge-safe** — tidak pernah menimpa numbering yang sudah ada; mereuse definisi yang cocok dan memakai id bebas berikutnya.
+3. **`w:numPr` ditaruh SETELAH `<w:pStyle>`** dalam `<w:pPr>` (urutan elemen pPr harus benar, `pStyle` dulu baru `numPr`).
+4. **Perlu wiring part**: `numbering.xml` harus dirujuk dari `word/_rels/document.xml.rels` + override di `[Content_Types].xml`. Script menambahkannya **hanya jika part-nya belum ada** — kalau template sudah punya `numbering.xml`, ia tidak membuat duplikat.
+5. **Verifikasi = render PDF** (`soffice` → `pdftotext -layout`), bukan grep XML. Kalau render masih menampilkan nomor lama hardcoded, itu berarti `convert` belum dijalankan (atau grep membidik teks literal yang memang sudah di-`strip`).
+
+---
+
 ## 5. Teknik Detail (DOCX Sub-Skill)
 
 Semua teknik detail ada di `skills/docx/SKILL.md`:
@@ -216,6 +253,7 @@ Semua teknik detail ada di `skills/docx/SKILL.md`:
 | Butuh | Buka |
 |-------|------|
 | Merge runs & edit XML | `skills/docx/SKILL.md` §2 |
+| Penomoran multilevel otomatis (heading hardcoded) | `skills/docx/SKILL.md` §2.5 |
 | SEQ / TOC / PAGEREF | `skills/docx/SKILL.md` §3 |
 | Checklist isi skripsi (teori vs implementasi, sitasi, riwayat hidup, kode) | `skills/docx/SKILL.md` §4 |
 | Panduan menulis orisinal (anti-plagiarisme) | `skills/docx/SKILL.md` §5 |
@@ -244,6 +282,10 @@ python3 scripts/validate-docx.py revised.docx
 
 # Merge runs di XML (wajib sebelum str_replace)
 python3 scripts/merge-runs.py unpacked/word/document.xml
+
+# Penomoran multilevel otomatis (setelah merge-runs): audit / fix heading hardcoded
+python3 scripts/numbering.py unpacked/ analyze
+python3 scripts/numbering.py unpacked/ convert
 
 # Analisis isi: headings, captions, tables, citations
 python3 scripts/docx-tools.py skripsi.docx all
