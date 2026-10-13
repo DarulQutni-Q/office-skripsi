@@ -63,8 +63,6 @@ Update: `cd office-skripsi && git pull`
 
 ## Cara Pakai
 
-## Cara Pakai
-
 ### Sebagai AI Agent Skill
 
 **Auto-configured**: Repo ini sudah punya `opencode.json` dengan `skills.paths: ["."]`. Buka folder `office-skripsi/` di OpenCode → skill langsung ter-load.
@@ -72,7 +70,6 @@ Update: `cd office-skripsi && git pull`
 **Global** (semua project):
 ```bash
 ln -sf $(pwd)/SKILL.md ~/.config/opencode/skills/skripsi/SKILL.md
-```
 ```
 
 Untuk Claude Code / agent lain:
@@ -98,6 +95,10 @@ python scripts/merge-runs.py work/unpacked/word/document.xml
 # Penomoran multilevel otomatis (setelah merge-runs): audit / fix heading hardcoded
 python scripts/numbering.py work/unpacked/ analyze
 python scripts/numbering.py work/unpacked/ convert
+
+# Italic hanya untuk istilah asing (audit dulu, lalu terapkan; .docx asli tidak ditimpa)
+python scripts/italic-foreign.py audit skripsi.docx --strip-other
+python scripts/italic-foreign.py apply skripsi.docx --strip-other
 
 # Audit font PDF (deteksi Calibri/theme-font tersisa setelah konversi TNR)
 pdftohtml -xml -i revised.pdf /tmp/doc.xml
@@ -171,7 +172,8 @@ office-skripsi/
 │   ├── validate-docx.py            # Validasi DOCX
 │   ├── docx-tools.py               # Analisis isi
 │   ├── merge-runs.py               # Gabung fragmentasi Word
-│   └── numbering.py                # Penomoran multilevel otomatis (heading hardcoded)
+│   ├── numbering.py                # Penomoran multilevel otomatis (heading hardcoded)
+│   └── italic-foreign.py           # Italic hanya untuk istilah asing (aman untuk caption/TOC)
 └── examples/
     └── EXAMPLE_SKRIPSI_WORKFLOW.md
 ```
@@ -181,6 +183,7 @@ office-skripsi/
 | Masalah Skripsi | Solusi di Skill Ini |
 |----------------|---------------------|
 | Heading tidak bernomor | Edit XML: tambah `w:numPr` / jalankan `numbering.py convert` |
+| Seluruh kalimat miring / istilah asing tidak miring | `italic-foreign.py audit` → `apply --strip-other` |
 | Caption tabel/gambar tidak urut | Renumber SEQ field |
 | Daftar Isi halamannya salah | Hardcode PAGEREF dari render PDF |
 | Sitasi tidak punya pasangan | Cross-check otomatis |

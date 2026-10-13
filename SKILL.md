@@ -199,7 +199,7 @@ Pedoman PDF biasanya ada di `~/Downloads/Pedoman-Penulisan-*.pdf`; ekstrak denga
 12. Struktur wajib tiap bab (ada template per-bab dari prodi)? Lampiran wajib?
 13. Penomoran bab (BAB I, BAB II / Bab 1, Bab 2) & penomoran sub-bab (1.1, 1.1.1)?
 14. Judul bab: KAPITAL penuh / Title Case? Posisi (kiri/tengah)? Garis bawah?
-15. Bahasa & ejaan (EYD/PUEBI)? Ada kata/istilah khusus yang wajib dipakai?
+15. Bahasa & ejaan (EYD/PUEBI)? Ada kata/istilah khusus yang wajib dipakai? Istilah asing wajib dimiringkan? Kata serapan mana yang **tidak** dimiringkan (mis. `software`, `online`)? (→ §4E)
 16. Batas similarity/plagiarisme (mis. Turnitin <20% atau <30%)?
 
 ### Aturan pakai
@@ -246,6 +246,51 @@ Setelah itu hapus satu section lalu render ulang: heading yang bertahan **harus*
 
 ---
 
+## 4E. ITALIC HANYA UNTUK ISTILAH ASING (`italic-foreign.py`) — Resep Terbukti
+
+**Konteks**: aturan PUEBI — kata/istilah asing dicetak miring, teks Indonesia biasa **tidak**. Bug yang sering muncul: seluruh kalimat/paragraf ikut miring, istilah asing yang terpecah antar-run lolos, atau italic bocor ke caption dan Daftar Isi.
+
+### Solusi
+
+`scripts/italic-foreign.py` mencocokkan istilah di level **paragraf** (jadi `machine ` + `learning` yang terpecah di dua `<w:r>` tetap kena), memecah run tepat di batas istilah (bold/font/ukuran/warna tetap), dan mengisi `<w:i>` + `<w:iCs>` di urutan `rPr` yang benar.
+
+```bash
+# 1) Audit dulu (read-only, exit 1 kalau ada yang perlu diubah)
+python3 scripts/italic-foreign.py audit skripsi.docx --strip-other
+
+# 2) Terapkan — .docx asli TIDAK ditimpa, hasil ke skripsi.italic.docx
+python3 scripts/italic-foreign.py apply skripsi.docx --strip-other
+
+# Di alur unzip: edit folder hasil unzip di tempat (setelah merge-runs / numbering)
+python3 scripts/italic-foreign.py apply work/unpacked --strip-other
+```
+
+| Opsi | Fungsi |
+|------|--------|
+| `--strip-other` | Hapus italic dari teks **non-asing** (perbaikan "seluruh kalimat miring"). Istilah asing di dalamnya tetap miring |
+| `--terms FILE` / `--term "x y"` | Tambah istilah. Di file: satu per baris, `#` komentar, awalan `!` = jangan miringkan istilah bawaan itu |
+| `--no-builtin` | Pakai hanya istilah dari `--terms`/`--term` |
+| `--include-headings` | Ikut proses heading (default dilewati) |
+| `--include-bibliography` | Ikut proses Daftar Pustaka (default dilewati) |
+| `--dry-run` | `apply` tanpa menulis apa pun |
+
+### Yang otomatis dilewati (jangan dilawan)
+
+1. **Caption/SEQ dan TOC/PAGEREF** — aturan §4A: non-italic. Kalau ditemukan italic di sana, script hanya **melaporkan** (tidak mengubah).
+2. **Heading** — Word menyalin format karakter heading ke entri Daftar Isi saat field di-update, jadi italic di heading akan bocor ke TOC.
+3. **Daftar Pustaka** (dari `DAFTAR PUSTAKA` sampai `LAMPIRAN`/`RIWAYAT HIDUP`/`BAB …`) — italic di sana mengikuti gaya sitasi (judul jurnal/buku), bukan aturan istilah asing.
+4. **Run ber-font monospace** (Consolas, Courier New, dst.) — potongan kode.
+
+### Fakta penting
+
+1. **Daftar istilah bawaan = titik awal, bukan kebenaran mutlak.** Kampus beda sikap soal kata serapan (`software`, `online`, `website`). Baca laporan "Istilah terdeteksi", buang yang tidak perlu dengan `!istilah`, tambah yang kurang lewat `--terms`. Tanyakan ke penulis (§4C no. 15).
+2. **Bukan istilah asing yang dimiringkan**: nama produk/merek/bahasa pemrograman/library (Laravel, MySQL, React), akronim (API, UML, CRUD). Jangan masukkan ke daftar.
+3. **`--strip-other` bisa menghapus italic yang disengaja** (mis. frasa asing yang belum ada di daftar). Selalu `audit` dulu: bagian "Teks miring yang BUKAN istilah asing" menunjukkan persis apa yang akan dicabut — kalau ada frasa asing di situ, tambahkan ke `--terms`.
+4. **Idempotent** — jalankan berulang aman. Setelah `apply`, `audit` harus exit 0.
+5. **Verifikasi = render**, bukan grep XML: `soffice --headless --convert-to pdf out.docx` lalu `pdftohtml -xml -i -stdout out.pdf | grep -o "<i>[^<]*</i>"` (bold+italic muncul sebagai `<i><b>…</b></i>`).
+
+---
+
 ## 5. Teknik Detail (DOCX Sub-Skill)
 
 Semua teknik detail ada di `skills/docx/SKILL.md`:
@@ -254,6 +299,7 @@ Semua teknik detail ada di `skills/docx/SKILL.md`:
 |-------|------|
 | Merge runs & edit XML | `skills/docx/SKILL.md` §2 |
 | Penomoran multilevel otomatis (heading hardcoded) | `skills/docx/SKILL.md` §2.5 |
+| Italic hanya istilah asing | `skills/docx/SKILL.md` §2.6 |
 | SEQ / TOC / PAGEREF | `skills/docx/SKILL.md` §3 |
 | Checklist isi skripsi (teori vs implementasi, sitasi, riwayat hidup, kode) | `skills/docx/SKILL.md` §4 |
 | Panduan menulis orisinal (anti-plagiarisme) | `skills/docx/SKILL.md` §5 |
@@ -287,6 +333,10 @@ python3 scripts/merge-runs.py unpacked/word/document.xml
 python3 scripts/numbering.py unpacked/ analyze
 python3 scripts/numbering.py unpacked/ convert
 
+# Italic hanya untuk istilah asing: audit / terapkan (lihat §4E)
+python3 scripts/italic-foreign.py audit skripsi.docx --strip-other
+python3 scripts/italic-foreign.py apply skripsi.docx --strip-other
+
 # Analisis isi: headings, captions, tables, citations
 python3 scripts/docx-tools.py skripsi.docx all
 python3 scripts/docx-tools.py skripsi.docx headings
@@ -313,3 +363,5 @@ pdftohtml -xml -i fmt.pdf /tmp/fmt.xml && python3 scripts/audit-pdf-fonts.py /tm
 | Edit 10 tempat lalu validasi 1x | Satu batch → validasi → ulangi |
 | Tebak data ambigu (riwayat hidup, dll) | Tanya penulis — jangan asal hapus/ganti |
 | Abaikan error XML | Satu tag tidak tertutup → dokumen corrupt |
+| Miringkan seluruh kalimat/paragraf yang mengandung istilah asing | `italic-foreign.py` — hanya istilah asingnya (§4E) |
+| Beri italic di heading/caption/TOC | Biarkan non-italic; italic heading bocor ke Daftar Isi |

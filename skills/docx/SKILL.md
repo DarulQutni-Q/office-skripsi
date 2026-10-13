@@ -222,6 +222,28 @@ Then delete a section and re-render: the surviving headings must renumber themse
 
 > Word must also have `numbering.xml` referenced from the document part (`word/_rels/document.xml.rels`) and an override in `[Content_Types].xml`. `numbering.py` adds these only if the part is missing — see `scripts/numbering.py` if you ever do this by hand.
 
+### 2.6 Italic for Foreign-Language Terms Only (`italic-foreign.py`)
+
+Indonesian thesis convention (PUEBI): foreign words/terms are italic; normal Indonesian text, product names (Laravel, MySQL), acronyms (API, UML), captions, the table of contents and chapter headings are **not**. Typical bugs: a whole sentence italic because it contains one English term, terms split across runs (`machine ` + `learning`) that never get italic, and italic leaking into TOC entries.
+
+```bash
+python3 scripts/italic-foreign.py audit skripsi.docx --strip-other   # read-only, exit 1 if changes needed
+python3 scripts/italic-foreign.py apply skripsi.docx --strip-other   # writes skripsi.italic.docx, original untouched
+python3 scripts/italic-foreign.py apply work/unpacked --strip-other  # in place on an unzipped folder
+```
+
+How it works (and why it is safe):
+
+- Matches terms on the **paragraph's concatenated text**, then splits `<w:r>` exactly at term boundaries — formatting (`rFonts`, `b`, `sz`, `color`, rsid) is cloned to every piece; tabs/breaks/fields are preserved and never matched across. `merge-runs.py` is not required first.
+- Writes `<w:i/>` + `<w:iCs/>` at the correct position inside `<w:rPr>` (schema order: `rStyle, rFonts, b, bCs, i, iCs, …`).
+- Resolves style italic (paragraph style XOR character style — they are *toggle properties*). To remove italic from a run whose style is italic it writes `<w:i w:val="0"/>` instead of just deleting the element.
+- Skips caption/`SEQ`, TOC/`PAGEREF`, headings (Word copies heading character formatting into TOC entries on field update), the bibliography (`DAFTAR PUSTAKA` → `LAMPIRAN`/`RIWAYAT HIDUP`/`BAB …`) and monospace-font runs. Italic found in caption/TOC paragraphs is reported, never auto-changed.
+- Idempotent; `audit` exits 0 after `apply`.
+
+The built-in term list is a starting point (campuses differ on loanwords such as `software`, `online`). Review the "Istilah terdeteksi" part of the report; remove with `!term` and add with `--terms FILE` / `--term "x y"`. `--strip-other` can remove intentional italic on foreign phrases missing from the list — read the "Teks miring yang BUKAN istilah asing" section of `audit` first.
+
+Verify by rendering: `soffice --headless --convert-to pdf out.docx && pdftohtml -xml -i -stdout out.pdf | grep -o "<i>[^<]*</i>"` (bold+italic appears as `<i><b>…</b></i>`).
+
 ---
 
 ## 3. Field Codes (TOC, SEQ, PAGEREF)
@@ -522,6 +544,7 @@ doc.save("output.docx")
 | TOC shows wrong pages | PAGEREF cached values stale | Render PDF → extract pages → hardcode PAGEREF values |
 | Caption references wrong | Text says "Table 5" but SEQ shows Table 4 | Fix the text reference manually |
 | Text split across many runs | Search text fails in XML but visible in Word | Merge runs first (§2.1) |
+| Whole sentence italic / foreign terms not italic / italic in TOC | Italic runs with no foreign term; foreign term in a non-italic run | `italic-foreign.py audit` then `apply --strip-other` (§2.6) |
 | Corrupt document after edit | Validation fails | Check XML for unclosed tags, unescaped chars |
 | Heading missing from TOC | No `_Toc` bookmark on that heading in body | Add bookmark + TOC entry manually |
 
