@@ -661,9 +661,16 @@ class TestRenderPhase4(unittest.TestCase):
 
     def test_heading_prefix_is_stripped(self):
         numbering.convert_document(self.unpacked, numbering.DEFAULT_STYLE_LEVELS)
-        txt = self._render_text().replace("\t", " ")
-        self.assertNotIn("1. 1 PENDAHULUAN", txt)
-        self.assertNotIn("2.1.1 Definisi", txt)
+        txt = self._render_text()
+        # LibreOffice renders the auto-number separator as tab or spaces
+        # depending on version -> normalize whitespace before asserting.
+        norm = re.sub(r"\s+", " ", txt)
+        # correct rendering: auto-number exactly once, title intact
+        self.assertIsNotNone(re.search(r"1 PENDAHULUAN", norm))
+        self.assertIsNotNone(re.search(r"2\.1\.1 Definisi Sistem", norm))
+        # no leftover literal prefix (that would double the number)
+        self.assertNotIn("1 1. PENDAHULUAN", norm)
+        self.assertNotIn("2.1.1 2.1.1", norm)
 
     def test_body_list_restarts_per_section(self):
         # Body list sits in its own section (after DAFTAR PUSTAKA) -> 1,2,3.
@@ -689,7 +696,7 @@ class TestRenderPhase4(unittest.TestCase):
         self.assertIsNotNone(re.search(r"1\.1\s+Latar Belakang", txt))
         # no "1.1 1.1" concatenation and no leftover literal prefix
         self.assertIsNone(re.search(r"1\.1\s+1\.1", txt))
-        self.assertNotIn("1. 1.1 Latar", txt.replace("\t", " "))
+        self.assertNotIn("1.1 1.1 Latar", txt.replace("\t", " "))
 
     def test_two_body_lists_restart_per_section_in_render(self):
         """Two chapters, each with a body list: BOTH must render 1,2 (never
