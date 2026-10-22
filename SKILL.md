@@ -35,7 +35,7 @@ Skill ini fokus ke **DOCX** (99% skripsi pakai Word). PPTX/PDF/XLSX adalah pendu
 
 ```bash
 # Clone repo
-git clone https://github.com/andypratama3/office-skripsi.git
+git clone https://github.com/DarulQutni-Q/office-skripsi.git
 cd office-skripsi
 
 # Install dependensi Python

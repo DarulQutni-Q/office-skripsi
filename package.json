@@ -8,7 +8,7 @@
     "office-skripsi": "./index.js"
   },
   "scripts": {
-    "docs": "open https://github.com/andypratama3/office-skripsi"
+    "docs": "open https://github.com/DarulQutni-Q/office-skripsi"
   },
   "keywords": [
     "opencode",
@@ -22,14 +22,14 @@
     "document-generation",
     "ai-agent"
   ],
-  "author": "Andy Pratama",
+  "author": "DarulQutni-Q",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andypratama3/office-skripsi.git"
+    "url": "git+https://github.com/DarulQutni-Q/office-skripsi.git"
   },
   "bugs": {
-    "url": "https://github.com/andypratama3/office-skripsi/issues"
+    "url": "https://github.com/DarulQutni-Q/office-skripsi/issues"
   },
-  "homepage": "https://github.com/andypratama3/office-skripsi#readme"
+  "homepage": "https://github.com/DarulQutni-Q/office-skripsi#readme"
 }

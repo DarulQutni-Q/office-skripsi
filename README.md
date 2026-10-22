@@ -2,6 +2,12 @@
 
 Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan cara merevisi dokumen skripsi (.docx) secara programatik — edit konten, perbaiki format, sinkronisasi Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi konsistensi lintas bab, dan menjaga orisinalitas tulisan.
 
+> **Catatan fork:** Repo ini adalah fork dari [andypratama3/office-skripsi](https://github.com/andypratama3/office-skripsi)
+> yang dikelola dan dikembangkan aktif di sini. Perubahan utama di fork ini dibanding upstream:
+> - `scripts/numbering.py` — penomoran multilevel otomatis untuk heading yang diketik manual (kontribusi utama)
+> - Perbaikan `scripts/merge-runs.py` (false-positive prosa berangka, double-escape entity, paragraf terhapus saat merge)
+> - Sinkronisasi rutin dari upstream
+
 ## Untuk Siapa
 
 - **Mahasiswa** yang ingin merevisi skripsinya dengan bantuan AI agent
@@ -13,7 +19,7 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/andypratama3/office-skripsi.git
+git clone https://github.com/DarulQutni-Q/office-skripsi.git
 cd office-skripsi
 pip install python-docx lxml
 ```
@@ -140,7 +146,7 @@ Select-String -Path revised.txt -Pattern "BAB 1|Tabel 4"
 ### Via `pip install` (Alternatif)
 
 ```bash
-pip install git+https://github.com/andypratama3/office-skripsi.git
+pip install git+https://github.com/DarulQutni-Q/office-skripsi.git
 ```
 
 ## Prasyarat
