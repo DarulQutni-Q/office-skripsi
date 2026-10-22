@@ -6,8 +6,8 @@ This shows how to apply the DOCX skill to a real thesis editing session.
 
 ```bash
 mkdir -p work && cd work
-cp ../Skripsi_AndyPratama_Revisi.docx ./original_backup.docx
-unzip -q ../Skripsi_AndyPratama_Revisi.docx -d unpacked/
+cp ../Skripsi_Revisi.docx ./original_backup.docx
+unzip -q ../Skripsi_Revisi.docx -d unpacked/
 ```
 
 ## Step 1: Understand the Document
