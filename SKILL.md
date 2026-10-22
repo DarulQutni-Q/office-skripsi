@@ -1,6 +1,6 @@
 ---
 name: skripsi
-description: Edit skripsi/thesis DOCX — content, formatting, TOC, captions, citations, consistency checks, and plagiarism-safe paraphrasing. Use when the user mentions skripsi, thesis, Word document revision, DOCX editing, fixing headings/captions/TOC, or formatting skripsi.
+description: Edit skripsi/thesis/makalah DOCX — content, formatting, TOC, captions, citations, consistency checks, and plagiarism-safe paraphrasing. Use when the user mentions skripsi, thesis, makalah, Word document revision, DOCX editing, fixing headings/captions/TOC, or formatting academic documents.
 license: MIT
 compatibility: opencode
 metadata:
@@ -27,7 +27,17 @@ Skripsi adalah **dokumen kompleks** dengan lapisan masalah:
 | **Konsistensi** | Metode disebut di Bab 3 tapi tidak ada teorinya di Bab 2, state di kode 9 tapi di teks 8 |
 | **Referensi** | Sitasi in-text tidak punya pasangan di daftar pustaka, nomor tabel di teks beda dengan realita |
 
-Skill ini fokus ke **DOCX** (99% skripsi pakai Word). PPTX/PDF/XLSX adalah pendukung — lihat sub-skill masing-masing.
+Skill ini fokus ke **DOCX** (99% skripsi/makalah pakai Word). PPTX/PDF/XLSX adalah pendukung — lihat sub-skill masing-masing.
+
+### Makalah adalah warga kelas satu
+
+Semua teknik di skill ini berlaku untuk **makalah** juga — bedanya cuma struktur bab. Makalah Indonesia umumnya: **PENDAHULUAN, PEMBAHASAN, PENUTUP, DAFTAR PUSTAKA** (vs skripsi yang 6 bab). Sesuaikan validasi dengan `--type makalah`:
+
+```bash
+python scripts/validate-docx.py makalah.docx --type makalah
+```
+
+Teknik lain (`numbering.py`, `italic-foreign.py`, `merge-runs.py`) tidak peduli nama bab — mereka bekerja di level heading/style Word, jadi langsung bisa dipakai untuk makalah tanpa flag khusus.
 
 ---
 

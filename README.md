@@ -1,6 +1,6 @@
-# Skripsi Skill — AI Agent untuk Revisi Skripsi/Thesis DOCX
+# Skripsi & Makalah Skill — AI Agent untuk Revisi Dokumen Akademik DOCX
 
-Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan cara merevisi dokumen skripsi (.docx) secara programatik — edit konten, perbaiki format, sinkronisasi Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi konsistensi lintas bab, dan menjaga orisinalitas tulisan.
+Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan cara merevisi dokumen akademik (.docx) — skripsi maupun makalah — secara programatik — edit konten, perbaiki format, sinkronisasi Daftar Isi/Tabel/Gambar, cross-check sitasi, validasi konsistensi lintas bab, dan menjaga orisinalitas tulisan.
 
 > **Catatan fork:** Repo ini adalah fork dari [andypratama3/office-skripsi](https://github.com/andypratama3/office-skripsi)
 > yang dikelola dan dikembangkan aktif di sini. Perubahan utama di fork ini dibanding upstream:
@@ -11,8 +11,20 @@ Skill pack untuk AI coding agents (OpenCode, Claude Code, dll) yang mengajarkan 
 ## Untuk Siapa
 
 - **Mahasiswa** yang ingin merevisi skripsinya dengan bantuan AI agent
+- **Mahasiswa** yang mengerjakan makalah / tugas kuliah (didukung penuh sebagai warga kelas satu)
 - **AI coding agents** yang perlu tahu cara edit .docx tanpa Microsoft Office
 - Siapapun yang bekerja dengan dokumen skripsi berbahasa Indonesia
+
+## Jenis Dokumen yang Didukung
+
+| Tipe | Struktur bab yang divalidasi | Contoh pakai |
+|------|------------------------------|--------------|
+| `skripsi` (default) | PENDAHULUAN, TINJAUAN PUSTAKA, METODE PENELITIAN, HASIL DAN PEMBAHASAN, KESIMPULAN, DAFTAR PUSTAKA | `python scripts/validate-docx.py revisi.docx` |
+| `makalah` | PENDAHULUAN, PEMBAHASAN, PENUTUP, DAFTAR PUSTAKA | `python scripts/validate-docx.py makalah.docx --type makalah` |
+| custom | sesukamu | `python scripts/validate-docx.py bebas.docx --sections "BAB 1, BAB 2"` |
+| tanpa cek bab | — | `python scripts/validate-docx.py bebas.docx --type none` |
+
+Teknik lain (numbering, italic-foreign, merge-runs) bekerja untuk kedua tipe karena beroperasi di level heading/style Word, bukan nama bab.
 
 ## Instalasi
 
@@ -94,6 +106,8 @@ python scripts/docx-tools.py skripsi.docx all
 
 # Validasi setelah edit
 python scripts/validate-docx.py revised.docx
+# atau untuk makalah:
+# python scripts/validate-docx.py makalah.docx --type makalah
 
 # Merge runs sebelum edit XML
 python scripts/merge-runs.py work/unpacked/word/document.xml
@@ -175,13 +189,18 @@ office-skripsi/
 │   ├── pdf/SKILL.md                # PDF handling
 │   └── spreadsheet/SKILL.md        # XLSX (data)
 ├── scripts/
-│   ├── validate-docx.py            # Validasi DOCX
+│   ├── validate-docx.py            # Validasi DOCX (--type skripsi/makalah)
 │   ├── docx-tools.py               # Analisis isi
 │   ├── merge-runs.py               # Gabung fragmentasi Word
 │   ├── numbering.py                # Penomoran multilevel otomatis (heading hardcoded)
 │   └── italic-foreign.py           # Italic hanya untuk istilah asing (aman untuk caption/TOC)
 └── examples/
-    └── EXAMPLE_SKRIPSI_WORKFLOW.md
+    ├── EXAMPLE_SKRIPSI_WORKFLOW.md
+    └── EXAMPLE_MAKALAH_WORKFLOW.md
+└── tests/
+    ├── test_numbering.py
+    ├── test_italic_foreign.py
+    └── test_validate_docx.py
 ```
 
 ## Apa yang Bisa Dilakukan
